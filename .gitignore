@@ -8,3 +8,4 @@ pkg/*.zip
 pkg/
 node_modules/
 /.kilo/plans/
+/.opencode/plans/
