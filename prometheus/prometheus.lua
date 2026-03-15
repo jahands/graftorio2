@@ -46,23 +46,6 @@ function Registry:unregister(collector)
 	end
 end
 
---- Collect all metrics from registered collectors. Invokes registered callbacks first.
---- @return string[]
-function Registry:collect()
-	for _, registered_callback in ipairs(self.callbacks) do
-		registered_callback()
-	end
-
-	local result = {}
-	for _, collector in pairs(self.collectors) do
-		for _, metric in ipairs(collector:collect()) do
-			table.insert(result, metric)
-		end
-		table.insert(result, "")
-	end
-	return result
-end
-
 --- Register a callback to be invoked before metric collection.
 --- @param callback fun()
 function Registry:register_callback(callback)
@@ -460,54 +443,94 @@ local function histogram(name, help, labels, buckets)
 	return obj
 end
 
---- Collect all registered metrics and return as a single newline-delimited string.
---- @return string
-local function collect()
+--- Module-local state for chunked (multi-tick) collection.
+--- @type {collector_keys: string[], collector_idx: integer, result: string[]}?
+local chunked_state = nil
+
+--- Begin a chunked collection pass. Invokes registered callbacks (once) and
+--- snapshots collector names into a deterministic ordered array for stable
+--- cursor iteration across ticks.
+local function collect_chunked_start()
 	local registry = get_registry()
 
-	return table.concat(registry:collect(), "\n") .. "\n"
-end
+	-- Invoke callbacks exactly once, before any collector iteration
+	for _, registered_callback in ipairs(registry.callbacks) do
+		registered_callback()
+	end
 
---- Collect all metrics formatted as an HTTP response table.
---- @return {status: integer, headers: table<string, string>, body: string}
-local function collect_http()
-	return {
-		status = 200,
-		headers = { ["content-type"] = "text/plain; charset=utf8" },
-		body = collect(),
+	-- Snapshot collector keys into a sorted array for deterministic order
+	local keys = {}
+	for name, _ in pairs(registry.collectors) do
+		keys[#keys + 1] = name
+	end
+	table.sort(keys)
+
+	chunked_state = {
+		collector_keys = keys,
+		collector_idx = 1,
+		result = {},
 	}
 end
 
---- Clear all registered collectors and callbacks.
-local function clear()
+--- Process the next `budget` collectors, appending their output lines to the
+--- accumulated result table. Returns `true` when all collectors have been
+--- processed, `false` otherwise.
+--- @param budget integer  Number of collectors to process this tick
+--- @return boolean done
+local function collect_chunked_next(budget)
+	if not chunked_state then
+		error("collect_chunked_next called without collect_chunked_start")
+	end
+
 	local registry = get_registry()
-	registry.collectors = {}
-	registry.callbacks = {}
+	local keys = chunked_state.collector_keys
+	local result = chunked_state.result
+	local processed = 0
+
+	while chunked_state.collector_idx <= #keys and processed < budget do
+		local key = keys[chunked_state.collector_idx]
+		local collector = registry.collectors[key]
+		if collector then
+			for _, metric in ipairs(collector:collect()) do
+				result[#result + 1] = metric
+			end
+			-- Separator between collectors (matches Registry:collect() behavior)
+			result[#result + 1] = ""
+		end
+		chunked_state.collector_idx = chunked_state.collector_idx + 1
+		processed = processed + 1
+	end
+
+	return chunked_state.collector_idx > #keys
 end
 
---- Initialize the registry with Tarantool-specific metrics (not used in Factorio context).
-local function init()
-	local registry = get_registry()
-	local tarantool_metrics = require("prometheus.tarantool-metrics")
-	registry:register_callback(tarantool_metrics.measure_tarantool_metrics)
+--- Finalize the chunked collection: concat accumulated lines into a single
+--- Prometheus text string, clear chunked state, and return the result.
+--- @return string
+local function collect_chunked_finish()
+	if not chunked_state then
+		error("collect_chunked_finish called without collect_chunked_start")
+	end
+
+	local output = table.concat(chunked_state.result, "\n") .. "\n"
+	chunked_state = nil
+	return output
 end
 
 --- @class PrometheusModule
 --- @field counter fun(name: string, help?: string, labels?: string[]): Counter
 --- @field gauge fun(name: string, help?: string, labels?: string[]): Gauge
 --- @field histogram fun(name: string, help?: string, labels?: string[], buckets?: number[]): Histogram
---- @field collect fun(): string
---- @field collect_http fun(): {status: integer, headers: table<string, string>, body: string}
---- @field clear fun()
---- @field init fun()
+--- @field collect_chunked_start fun()
+--- @field collect_chunked_next fun(budget: integer): boolean
+--- @field collect_chunked_finish fun(): string
 
 --- @type PrometheusModule
 return {
 	counter = counter,
 	gauge = gauge,
 	histogram = histogram,
-	collect = collect,
-	collect_http = collect_http,
-	clear = clear,
-	init = init,
+	collect_chunked_start = collect_chunked_start,
+	collect_chunked_next = collect_chunked_next,
+	collect_chunked_finish = collect_chunked_finish,
 }

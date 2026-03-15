@@ -15,11 +15,11 @@
 -- Phase 10: power network stats — per surface
 -- Phase 11: circuit prepare (rescan, reset, group) — resumable
 -- Phase 12: circuit network signals + K2 reactors — per surface
--- Phase 13: serialize metrics — single tick
+-- Phase 13: serialize metrics — resumable (N collectors per tick)
 -- Phase 14: write .prom file — single tick
 --
 -- Total ticks per cycle is now 8 + 8×S plus any extra ticks needed to finish
--- the resumable power/circuit prepare phases on large saves.
+-- the resumable power/circuit prepare phases and serialization on large saves.
 
 -- ============================================================================
 -- Module-local state (resets on save/load — not persisted in storage)
@@ -28,7 +28,11 @@
 local collection_phase = 0
 local cached_surfaces = {}      -- array of LuaSurface, snapshot captured at cycle start
 local surface_idx = 0           -- current position within cached_surfaces for per-surface phases
-local serialized_metrics = nil  -- holds prometheus.collect() output between serialize and write phases
+local serialized_metrics = nil  -- holds serialized prometheus output between serialize and write phases
+local serialize_started = false -- tracks whether chunked serialization has been initialized
+
+-- Budget: number of prometheus collectors to serialize per tick
+local SERIALIZE_COLLECTORS_PER_TICK = 1
 
 -- Phase constants
 local PHASE_IDLE = 0
@@ -44,7 +48,7 @@ local PHASE_POWER_PREPARE = 9          -- resumable
 local PHASE_POWER = 10                 -- per surface
 local PHASE_CIRCUITS_PREPARE = 11      -- resumable
 local PHASE_CIRCUITS = 12              -- per surface
-local PHASE_SERIALIZE = 13             -- single tick
+local PHASE_SERIALIZE = 13             -- resumable
 local PHASE_WRITE_FILE = 14            -- single tick
 local PHASE_MAX = 14
 
@@ -337,9 +341,24 @@ local function collect_circuits_surface(surface)
 	end
 end
 
---- Phase 13: Serialize all metrics into a string (single tick).
-local function serialize_metrics()
-	serialized_metrics = prometheus.collect()
+--- Phase 13: Serialize metrics — resumable (N collectors per tick).
+--- First call initializes chunked collection; subsequent calls process a fixed
+--- budget of collectors. Returns true when serialization is complete.
+--- @param event EventData
+--- @return boolean done
+local function serialize_metrics_resumable(event)
+	if not serialize_started then
+		prometheus.collect_chunked_start()
+		serialize_started = true
+	end
+
+	if prometheus.collect_chunked_next(SERIALIZE_COLLECTORS_PER_TICK) then
+		serialized_metrics = prometheus.collect_chunked_finish()
+		serialize_started = false
+		return true
+	end
+
+	return false
 end
 
 --- Phase 14: Write the serialized .prom file (single tick).
@@ -376,6 +395,7 @@ local surface_phase_dispatch = {
 local resumable_phase_dispatch = {
 	[PHASE_POWER_PREPARE] = collect_power_prepare,
 	[PHASE_CIRCUITS_PREPARE] = collect_circuits_prepare,
+	[PHASE_SERIALIZE] = serialize_metrics_resumable,
 }
 
 --- Single-tick phase dispatch: maps phase number to function(event).
@@ -383,7 +403,6 @@ local resumable_phase_dispatch = {
 local single_phase_dispatch = {
 	[PHASE_GLOBALS] = collect_globals,
 	[PHASE_RESEARCH_PLATFORMS] = collect_research_platforms,
-	[PHASE_SERIALIZE] = serialize_metrics,
 	[PHASE_WRITE_FILE] = write_metrics_file,
 }
 
