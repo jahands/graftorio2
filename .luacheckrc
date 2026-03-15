@@ -3,6 +3,7 @@
 
 -- Standard Factorio globals
 std = "lua52"
+cache = true
 
 -- Factorio API globals (read-only)
 read_globals = {
@@ -18,14 +19,14 @@ read_globals = {
   "script",
   "rendering",
   "game",
-  "global",
+  "storage",
   "log",
   "localised_print",
 }
 
 -- Allow these to be written to
 globals = {
-  "global",
+  "storage",
 }
 
 -- Ignore line length warnings (Factorio code can be verbose)
@@ -37,13 +38,12 @@ ignore = {
   "213", -- Unused loop variable
 }
 
--- Specific file overrides
-files["settings.lua"] = {
-  globals = {"data"}
+files["settings*.lua"] = {
+  globals = {"data"},
 }
 
-files["data.lua"] = {
-  globals = {"data"}
+files["data*.lua"] = {
+  globals = {"data"},
 }
 
 -- Exclude generated or external files
