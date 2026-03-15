@@ -15,5 +15,28 @@
   "spoiling_required": false,
   "freezing_required": false,
   "segmented_units_required": false,
-  "expansion_shaders_required": false
+  "expansion_shaders_required": false,
+  "package": {
+    "ignore": [
+      ".github/**",
+      ".gitattributes",
+      ".gitignore",
+      ".luacheckrc",
+      ".luarc.json",
+      ".mise.toml",
+      ".releaserc",
+      ".vscode/**",
+      "bun.lock",
+      "config/**",
+      "CONTRIBUTING.md",
+      "data/**",
+      "docker-compose*.yml",
+      "Justfile",
+      "Metrics.md",
+      "node_modules/**",
+      "package.json",
+      "pkg/**",
+      "prometheus/**"
+    ]
+  }
 }
