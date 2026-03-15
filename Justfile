@@ -23,17 +23,9 @@ deps:
 info:
   @printf 'mod: %s\nversion: %s\npackage: %s\nFACTORIO_MODS_DIR: %s\n' '{{ mod_name }}' '{{ mod_version }}' '{{ package_zip }}' '{{ if factorio_mods_dir != "" { factorio_mods_dir } else { "<not found>" } }}'
 
-# Datestamp the current changelog entry.
-datestamp:
-  @_fmtk "datestamp"
-
-# Bump the mod version using FMTK.
-version:
-  @_fmtk "version"
-
 # Build a release zip into pkg/.
 package: _pkg-dir
-  @_fmtk "package" "--outdir" package_dir
+  bun fmtk package --outdir {{ package_dir }}
 
 # Symlink the repo into FACTORIO_MODS_DIR for live local testing.
 install-link: _require_factorio_mods_dir
@@ -63,15 +55,6 @@ docker-logs service="":
 # Remove generated zip artifacts.
 clean:
   rm -f {{ package_dir }}/*.zip
-
-# ================================= #
-# ============ Helpers ============ #
-# ================================= #
-
-[private]
-[positional-arguments]
-_fmtk +args:
-  bun fmtk "$@"
 
 [private]
 _pkg-dir:

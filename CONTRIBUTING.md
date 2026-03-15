@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- `bun` for project tooling and `fmtk`
+- `bun` for project tooling and packaging
 - `just` for common project commands
 - Factorio installed locally for testing the mod
 - Docker if you want to run the bundled Grafana/Prometheus stack
@@ -33,11 +33,6 @@ When working on the Grafana/Prometheus side of the project:
 1. Run `just docker-up` to start the local stack.
 2. Use `just docker-logs` while debugging startup or scrape issues.
 3. Run `just docker-down` when you are done.
-
-When changing versioned release content locally:
-
-1. Run `just datestamp` when you need to update the current changelog entry date.
-2. Run `just version` only when you intentionally want the local tooling to bump version metadata.
 
 If your Factorio mods directory is in a non-standard location, set `FACTORIO_MODS_DIR` before running install commands.
 
