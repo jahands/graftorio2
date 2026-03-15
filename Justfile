@@ -1,12 +1,10 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set dotenv-load := true
 
-mod_name := `python3 -c 'import json, pathlib; print(json.loads(pathlib.Path("info.json").read_text())["name"])'`
-mod_version := `python3 -c 'import json, pathlib; print(json.loads(pathlib.Path("info.json").read_text())["version"])'`
+mod_name := `bun -e 'console.log(JSON.parse(require("node:fs").readFileSync("info.json", "utf8")).name)'`
+mod_version := `bun -e 'console.log(JSON.parse(require("node:fs").readFileSync("info.json", "utf8")).version)'`
 package_dir := "pkg"
 package_zip := package_dir + "/" + mod_name + "_" + mod_version + ".zip"
-compose := `if docker compose version >/dev/null 2>&1; then printf 'docker compose'; else printf 'docker-compose'; fi`
-fmtk := `if [ -x ./node_modules/.bin/factoriomod-debug ]; then printf './node_modules/.bin/factoriomod-debug'; elif command -v bun >/dev/null 2>&1; then printf 'bun x factoriomod-debug'; else printf 'npx --no-install factoriomod-debug'; fi`
 
 alias pkg := package
 alias up := docker-up
@@ -26,15 +24,15 @@ info:
 
 # Datestamp the current changelog entry.
 datestamp:
-  {{ fmtk }} datestamp
+  @_fmtk "datestamp"
 
 # Bump the mod version using FMTK.
 version:
-  {{ fmtk }} version
+  @_fmtk "version"
 
 # Build a release zip into pkg/.
 package: _pkg-dir
-  {{ fmtk }} package --outdir {{ package_dir }}
+  @_fmtk "package" "--outdir" package_dir
 
 # Symlink the repo into FACTORIO_MODS_DIR for live local testing.
 install-link: _require_factorio_mods_dir
@@ -51,19 +49,28 @@ install-zip: package _require_factorio_mods_dir
 
 # Start the local Grafana/Prometheus stack.
 docker-up:
-  {{ compose }} up -d
+  docker compose up -d
 
 # Stop the local Grafana/Prometheus stack.
 docker-down:
-  {{ compose }} down
+  docker compose down
 
 # Follow stack logs, optionally filtered by service.
 docker-logs service="":
-  @if [ -n "{{ service }}" ]; then {{ compose }} logs -f "{{ service }}"; else {{ compose }} logs -f; fi
+  @if [ -n "{{ service }}" ]; then docker compose logs -f "{{ service }}"; else docker compose logs -f; fi
 
 # Remove generated zip artifacts.
 clean:
   rm -f {{ package_dir }}/*.zip
+
+# ================================= #
+# ============ Helpers ============ #
+# ================================= #
+
+[private]
+[positional-arguments]
+_fmtk +args:
+  bun fmtk "$@"
 
 [private]
 _pkg-dir:
