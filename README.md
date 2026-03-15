@@ -26,7 +26,7 @@ graftorio2 automates this process using docker, or you can set these up by hand.
 
 ## Installation
 
-1. download the latest [release](https://github.com/tehlers320/graftorio2/releases), and extract it into the location you want to host the local database
+1. download the latest [release](https://github.com/jahands/graftorio2/releases), and extract it into the location you want to host the local database
 2. [install docker](https://docs.docker.com/install/)
    - if using windows, you will need to be running Windows 10 Pro
 3. if using macOS or Linux, open the extracted `docker-compose.yml` in a text editor and uncomment the correct path to your Factorio install
@@ -228,4 +228,3 @@ to see if the Grafana data source can read correctly, there is already a include
 this should show a linear growing `Factorio Tick` panel.  
 alternatively start a new dashboard and add a graph with the query `factorio_item_production_input`.  
 the graph should render the total of every item produced in your game.  
-
