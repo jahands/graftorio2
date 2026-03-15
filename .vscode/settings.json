@@ -1,3 +1,14 @@
 {
-    "makefile.configureOnOpen": true
+    "makefile.configureOnOpen": true,
+    "factorio.versions": [
+        {
+            "name": "System",
+            "factorioPath": "/Applications/factorio.app/Contents/MacOS/factorio",
+            "active": true
+        }
+    ],
+    "Lua.workspace.userThirdParty": [
+        "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd"
+    ],
+    "Lua.workspace.checkThirdParty": "ApplyInMemory"
 }
