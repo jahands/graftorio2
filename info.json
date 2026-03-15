@@ -1,10 +1,10 @@
 {
-  "name": "graftorio2-narf",
+  "name": "graftorio2-geo",
   "version": "1.0.1",
-  "title": "graftorio2 - narfs version",
-  "author": "ehlerst",
+  "title": "graftorio2 - Geo's version",
+  "author": "Geostyx",
   "description": "visualize metrics from your factorio game in grafana - Space Age & Krastorio2 enhanced",
-  "homepage": "https://github.com/ehlerst/graftorio2",
+  "homepage": "https://github.com/jahands/graftorio2",
   "dependencies": [
     "? YARM >= 0.8.207"
   ],
