@@ -1,6 +1,5 @@
 {
   "name": "graftorio2-geo",
-  "version": "1.0.1",
   "private": true,
   "description": "Visualize metrics from your factorio game in grafana",
   "license": "MIT",
