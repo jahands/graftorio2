@@ -4,6 +4,10 @@
   "description": "Visualize metrics from your factorio game in grafana",
   "license": "MIT",
   "devDependencies": {
-    "factoriomod-debug": "2.0.10"
+    "@semantic-release/git": "^10.0.1",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
+    "factoriomod-debug": "2.0.10",
+    "semantic-release": "^24.2.3",
+    "semantic-release-factorio": "1.6.6"
   }
 }
