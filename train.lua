@@ -64,7 +64,6 @@ local function create_train(event)
 		return
 	end
 
-	-- {source station, tick it departed there, tick last begun waiting, total ticks spent waiting}
 	--- @type TrainTrip
 	train_trips[event.train.id] = {
 		source = event.train.path_end_stop.backer_name,
@@ -82,7 +81,6 @@ local function create_station(event)
 		return
 	end
 
-	-- {last arrival tick}
 	--- @type StationArrival
 	arrivals[event.train.path_end_stop.backer_name] = { last_arrival_tick = 0 }
 	-- watch_station(event, "created station " .. event.train.path_end_stop.backer_name)
