@@ -7,6 +7,19 @@
 local FAILED_LOOKUP_BACKOFF_TICKS = 600  -- 10 seconds (at 60 ticks/second)
 local CLEANUP_INTERVAL_TICKS = 3600      -- 1 minute
 
+--- @class PowerNetworkEntry
+--- @field entity_number uint Unit number of the representative electric pole
+--- @field prev {input: table<string, number>, output: table<string, number>} Previous tick's statistics
+
+--- @class PowerScriptData
+--- @field has_checked boolean Whether the initial world rescan has been performed this session
+--- @field networks table<uint, PowerNetworkEntry> Electric network ID -> network entry
+--- @field switches table<uint, integer|LuaEntity> Power switch tracking (unit_number -> 1 sentinel or legacy entity ref)
+--- @field ignored_networks_cache table<uint, boolean>? Cached set of network IDs to ignore (behind power switches)
+--- @field ignored_networks_dirty boolean Whether the ignored networks cache needs recalculation
+--- @field failed_lookups table<uint, uint> Entity unit_number -> tick of last failed lookup (for backoff)
+
+--- @type PowerScriptData
 local script_data = {
 	has_checked = false,
 	networks = {},
@@ -16,9 +29,13 @@ local script_data = {
 	failed_lookups = {},
 }
 
+--- @type table<uint, LuaEntity> Runtime entity cache (unit_number -> entity), rebuilt on load
 local map = {}
 
+--- Create or update a network entry for the given electric pole entity.
+--- @param entity LuaEntity An electric pole entity
 local function new_entity_entry(entity)
+	--- @type PowerNetworkEntry
 	local base = {
 		entity_number = entity.unit_number,
 		prev = { input = {}, output = {} },
@@ -30,6 +47,10 @@ local function new_entity_entry(entity)
 	map[entity.unit_number] = entity
 end
 
+--- Find an entity by unit number, using the local cache or falling back to surface search.
+--- @param unit_number uint
+--- @param entity_type string Entity prototype type to filter by
+--- @return LuaEntity?
 local function find_entity(unit_number, entity_type)
 	if map[unit_number] then
 		return map[unit_number]
@@ -46,9 +67,13 @@ local function find_entity(unit_number, entity_type)
 	end
 end
 
+--- Rebuild the entity cache by rescanning all surfaces for electric poles.
+--- Cleans up invalid or orphaned network entries.
 local function rescan_worlds()
 	local networks = script_data.networks
+	--- @type table<uint, boolean>
 	local invalids = {}
+	--- @type table<uint, boolean>
 	local remove = {}
 	for idx, network in pairs(networks) do
 		if network.entity then
@@ -82,6 +107,9 @@ local function rescan_worlds()
 	end
 end
 
+--- Get the set of electric network IDs that should be ignored (networks behind power switches).
+--- Uses a dirty-flag cache to avoid recalculating every tick.
+--- @return table<uint, boolean> ignored Set of network IDs to skip
 local function get_ignored_networks_by_switches()
 	-- Return cached result if not dirty
 	if not script_data.ignored_networks_dirty and script_data.ignored_networks_cache then
@@ -89,6 +117,7 @@ local function get_ignored_networks_by_switches()
 	end
 
 	-- Recalculate ignored networks
+	--- @type table<uint, boolean>
 	local ignored = {}
 	local max = math.max
 	for switch_id, val in pairs(script_data.switches) do
@@ -111,6 +140,8 @@ local function get_ignored_networks_by_switches()
 	return ignored
 end
 
+--- Handle entity build events for electric poles and power switches.
+--- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.script_raised_built
 function on_power_build(event)
 	local entity = event.entity or event.created_entity
 	if entity and entity.type == "electric-pole" then
@@ -125,6 +156,9 @@ function on_power_build(event)
 	end
 end
 
+--- Handle entity destroy events for electric poles and power switches.
+--- When an electric pole is destroyed, updates neighboring network entries.
+--- @param event EventData.on_player_mined_entity|EventData.on_robot_mined_entity|EventData.on_entity_died|EventData.script_raised_destroy
 function on_power_destroy(event)
 	local entity = event.entity
 	if entity.type == "electric-pole" then
@@ -158,12 +192,15 @@ function on_power_destroy(event)
 	-- rescan_worlds()
 end
 
+--- Restore power tracking state after a save/load cycle.
+--- Resets runtime-only flags; entity cache (`map`) is rebuilt lazily via `rescan_worlds()`.
 function on_power_load()
 	script_data.has_checked = false
 	script_data.ignored_networks_dirty = true
 	script_data.ignored_networks_cache = nil
 end
 
+--- Initialize power tracking state for a new game.
 function on_power_init()
 	script_data.has_checked = false
 	script_data.ignored_networks_dirty = true
@@ -171,6 +208,10 @@ function on_power_init()
 	script_data.failed_lookups = {}
 end
 
+--- Collect electric network statistics. Called every nth-tick from events.lua.
+--- Iterates all tracked networks, looks up their representative entity, and exports
+--- input/output power statistics per force, network, and surface.
+--- @param event EventData.on_nth_tick
 function on_power_tick(event)
 	if event.tick then
 		local ignored = get_ignored_networks_by_switches()

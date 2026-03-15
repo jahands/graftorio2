@@ -2,9 +2,17 @@
 -- Monitors technology research progress and queue
 -- Tracks completed research and exports progress metrics per force
 
+--- @class ResearchRecord
+--- @field researched integer 1 if completed
+--- @field name string Technology prototype name
+--- @field level integer Technology level
+
+--- Handle research completion event. Stores the last completed research per force in `storage`.
+--- @param event EventData.on_research_finished
 function on_research_finished(event)
 	local research = event.research
 	if not storage.last_research then
+		--- @type table<string, ResearchRecord>
 		storage.last_research = {}
 	end
 
@@ -21,12 +29,16 @@ function on_research_finished(event)
 	}
 end
 
--- Note: This function should be called once per force, not per player
--- The events.lua module handles this by tracking processed_forces
+--- Collect research queue metrics for a force. Called once per force per nth-tick.
+--- Despite the parameter name in the original code, this receives a LuaPlayer from events.lua
+--- and accesses the force via `player.force`. Called as `on_research_tick(player, event)`.
+--- @param player LuaPlayer A player whose force will be used for research metrics
+--- @param event EventData.on_nth_tick
 function on_research_tick(player, event)
 	if event.tick then
 		gauge_research_queue:reset()
 
+		--- @type ResearchRecord|false
 		local researched_queue = storage.last_research and storage.last_research[player.force.name] or false
 		if researched_queue then
 			gauge_research_queue:set(
@@ -36,6 +48,7 @@ function on_research_tick(player, event)
 		end
 
 		-- Levels dont get matched properly so store and save
+		--- @type table<string, integer>
 		local levels = {}
 		for idx, tech in pairs(player.force.research_queue or { player.force.current_research }) do
 			levels[tech.name] = levels[tech.name] and levels[tech.name] + 1 or tech.level

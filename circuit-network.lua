@@ -3,11 +3,17 @@
 -- Uses incremental updates to track combinators without expensive full rescans
 -- Exports signal values to Prometheus metrics
 
+--- @class CircuitNetworkData
+--- @field inited boolean Whether the initial rescan has been completed
+--- @field combinators table<uint, LuaEntity> Map of unit_number -> combinator entity
+
+--- @type CircuitNetworkData
 local data = {
 	inited = false,
 	combinators = {},
 }
 
+--- Perform a full rescan of all constant combinators across all surfaces and forces.
 local function rescan()
 	data.combinators = {}
 	for _, player in pairs(game.players) do
@@ -25,6 +31,8 @@ local function rescan()
 	data.inited = true
 end
 
+--- Handle entity build events. Adds new constant combinators to tracking.
+--- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.script_raised_built
 function on_circuit_network_build(event)
 	local entity = event.entity or event.created_entity
 	if entity and entity.name == "constant-combinator" then
@@ -38,6 +46,8 @@ function on_circuit_network_build(event)
 	end
 end
 
+--- Handle entity destroy events. Removes constant combinators from tracking.
+--- @param event EventData.on_player_mined_entity|EventData.on_robot_mined_entity|EventData.on_entity_died|EventData.script_raised_destroy
 function on_circuit_network_destroy(event)
 	local entity = event.entity
 	if entity and entity.name == "constant-combinator" then
@@ -46,14 +56,18 @@ function on_circuit_network_destroy(event)
 	end
 end
 
+--- Initialize circuit network tracking (called on_init).
 function on_circuit_network_init()
 	data.inited = false
 end
 
+--- Reset circuit network tracking state (called on_load).
 function on_circuit_network_load()
 	data.inited = false
 end
 
+--- Collect circuit network signal metrics. Called every nth-tick from events.lua.
+--- @param event EventData.on_nth_tick
 function on_circuit_network_tick(event)
 	if event.tick then
 		if not data.inited then
@@ -62,6 +76,7 @@ function on_circuit_network_tick(event)
 
 		gauge_circuit_network_monitored:reset()
 		gauge_circuit_network_signal:reset()
+		--- @type table<uint, boolean>
 		local seen = {}
 		for unit_number, combinator in pairs(data.combinators) do
 			-- Validate entity and clean up invalid references
@@ -71,6 +86,7 @@ function on_circuit_network_tick(event)
 			end
 
 			-- Deduplicate networks at combinator level to avoid checking both wire types for same network
+			--- @type table<uint, boolean>
 			local networks_checked = {}
 			for _, wire_type in pairs({ defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green }) do
 				local network = combinator.get_circuit_network(wire_type)

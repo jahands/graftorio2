@@ -3,13 +3,22 @@
 
 local INF = math.huge
 local NAN = math.huge * 0
+
+--- Default histogram bucket boundaries (seconds).
+--- @type number[]
 local DEFAULT_BUCKETS = { 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, INF }
 
+--- @type Registry?
 local REGISTRY = nil
 
+--- @class Registry
+--- @field collectors table<string, Counter|Gauge|Histogram>
+--- @field callbacks fun()[]
 local Registry = {}
 Registry.__index = Registry
 
+--- Create a new Registry instance.
+--- @return Registry
 function Registry.new()
 	local obj = {}
 	setmetatable(obj, Registry)
@@ -18,6 +27,9 @@ function Registry.new()
 	return obj
 end
 
+--- Register a collector with this registry. Returns existing collector if name is already registered.
+--- @param collector Counter|Gauge|Histogram
+--- @return Counter|Gauge|Histogram
 function Registry:register(collector)
 	if self.collectors[collector.name] ~= nil then
 		return self.collectors[collector.name]
@@ -26,12 +38,16 @@ function Registry:register(collector)
 	return collector
 end
 
+--- Unregister a collector from this registry.
+--- @param collector Counter|Gauge|Histogram
 function Registry:unregister(collector)
 	if self.collectors[collector.name] ~= nil then
 		self.collectors[collector.name] = nil
 	end
 end
 
+--- Collect all metrics from registered collectors. Invokes registered callbacks first.
+--- @return string[]
 function Registry:collect()
 	for _, registered_callback in ipairs(self.callbacks) do
 		registered_callback()
@@ -47,6 +63,8 @@ function Registry:collect()
 	return result
 end
 
+--- Register a callback to be invoked before metric collection.
+--- @param callback fun()
 function Registry:register_callback(callback)
 	local found = false
 	for _, registered_callback in ipairs(self.callbacks) do
@@ -59,6 +77,8 @@ function Registry:register_callback(callback)
 	end
 end
 
+--- Get or create the singleton registry.
+--- @return Registry
 local function get_registry()
 	if not REGISTRY then
 		REGISTRY = Registry.new()
@@ -66,6 +86,9 @@ local function get_registry()
 	return REGISTRY
 end
 
+--- Register a collector with the global singleton registry.
+--- @param collector Counter|Gauge|Histogram
+--- @return Counter|Gauge|Histogram
 local function register(collector)
 	local registry = get_registry()
 	registry:register(collector)
@@ -73,11 +96,17 @@ local function register(collector)
 	return collector
 end
 
+--- Register a callback with the global singleton registry.
+--- @param callback fun()
 local function register_callback(callback)
 	local registry = get_registry()
 	registry:register_callback(callback)
 end
 
+--- Zip two arrays into an array of pairs.
+--- @param lhs string[]?
+--- @param rhs (string|number)[]?
+--- @return {[1]: string, [2]: string|number}[]
 local function zip(lhs, rhs)
 	if lhs == nil or rhs == nil then
 		return {}
@@ -91,6 +120,9 @@ local function zip(lhs, rhs)
 	return result
 end
 
+--- Convert a numeric value to its Prometheus string representation.
+--- @param value number
+--- @return string
 local function metric_to_string(value)
 	if value == INF then
 		return "+Inf"
@@ -103,10 +135,16 @@ local function metric_to_string(value)
 	end
 end
 
+--- Escape a string for Prometheus text format (backslashes, newlines, double-quotes).
+--- @param str string
+--- @return string
 local function escape_string(str)
 	return str:gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub('"', '\\"')
 end
 
+--- Format label pairs as a Prometheus label string like `{key="value",...}`.
+--- @param label_pairs {[1]: string, [2]: string|number}[]
+--- @return string
 local function labels_to_string(label_pairs)
 	if #label_pairs == 0 then
 		return ""
@@ -121,9 +159,20 @@ local function labels_to_string(label_pairs)
 	return "{" .. table.concat(label_parts, ",") .. "}"
 end
 
+--- @class Counter
+--- @field name string Metric name
+--- @field help string Help text
+--- @field labels string[] Label names
+--- @field observations table<string, number> Keyed by concatenated label values
+--- @field label_values table<string, (string|number)[]> Keyed by concatenated label values
 local Counter = {}
 Counter.__index = Counter
 
+--- Create a new Counter instance.
+--- @param name string Metric name (required)
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @return Counter
 function Counter.new(name, help, labels)
 	local obj = {}
 	setmetatable(obj, Counter)
@@ -139,6 +188,9 @@ function Counter.new(name, help, labels)
 	return obj
 end
 
+--- Increment the counter by a non-negative number.
+--- @param num number? Increment amount (default 1)
+--- @param label_values (string|number)[]? Label values
 function Counter:inc(num, label_values)
 	num = num or 1
 	label_values = label_values or {}
@@ -151,6 +203,8 @@ function Counter:inc(num, label_values)
 	self.label_values[key] = label_values
 end
 
+--- Collect counter metrics as Prometheus text lines.
+--- @return string[]
 function Counter:collect()
 	local result = {}
 
@@ -173,9 +227,20 @@ function Counter:collect()
 	return result
 end
 
+--- @class Gauge
+--- @field name string Metric name
+--- @field help string Help text
+--- @field labels string[] Label names
+--- @field observations table<string, number> Keyed by concatenated label values
+--- @field label_values table<string, (string|number)[]> Keyed by concatenated label values
 local Gauge = {}
 Gauge.__index = Gauge
 
+--- Create a new Gauge instance.
+--- @param name string Metric name (required)
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @return Gauge
 function Gauge.new(name, help, labels)
 	local obj = {}
 	setmetatable(obj, Gauge)
@@ -191,11 +256,15 @@ function Gauge.new(name, help, labels)
 	return obj
 end
 
+--- Reset all observations and label values.
 function Gauge:reset()
 	self.observations = {}
 	self.label_values = {}
 end
 
+--- Increment the gauge by a number.
+--- @param num number? Increment amount (default 1)
+--- @param label_values (string|number)[]? Label values
 function Gauge:inc(num, label_values)
 	num = num or 1
 	label_values = label_values or {}
@@ -205,6 +274,9 @@ function Gauge:inc(num, label_values)
 	self.label_values[key] = label_values
 end
 
+--- Decrement the gauge by a number.
+--- @param num number? Decrement amount (default 1)
+--- @param label_values (string|number)[]? Label values
 function Gauge:dec(num, label_values)
 	num = num or 1
 	label_values = label_values or {}
@@ -214,6 +286,9 @@ function Gauge:dec(num, label_values)
 	self.label_values[key] = label_values
 end
 
+--- Set the gauge to an absolute value.
+--- @param num number? Value to set (default 0)
+--- @param label_values (string|number)[]? Label values
 function Gauge:set(num, label_values)
 	num = num or 0
 	label_values = label_values or {}
@@ -222,6 +297,8 @@ function Gauge:set(num, label_values)
 	self.label_values[key] = label_values
 end
 
+--- Collect gauge metrics as Prometheus text lines.
+--- @return string[]
 function Gauge:collect()
 	local result = {}
 
@@ -244,9 +321,24 @@ function Gauge:collect()
 	return result
 end
 
+--- @class Histogram
+--- @field name string Metric name
+--- @field help string Help text
+--- @field labels string[] Label names
+--- @field buckets number[] Sorted bucket boundaries (always ends with +Inf)
+--- @field observations table<string, number[]> Bucket counts keyed by concatenated label values
+--- @field label_values table<string, (string|number)[]> Keyed by concatenated label values
+--- @field counts table<string, number> Total observation counts per key
+--- @field sums table<string, number> Total observation sums per key
 local Histogram = {}
 Histogram.__index = Histogram
 
+--- Create a new Histogram instance.
+--- @param name string Metric name (required)
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @param buckets number[]? Bucket boundaries (defaults to DEFAULT_BUCKETS)
+--- @return Histogram
 function Histogram.new(name, help, labels, buckets)
 	local obj = {}
 	setmetatable(obj, Histogram)
@@ -269,6 +361,9 @@ function Histogram.new(name, help, labels, buckets)
 	return obj
 end
 
+--- Record an observation in the histogram.
+--- @param num number? Observed value (default 0)
+--- @param label_values (string|number)[]? Label values
 function Histogram:observe(num, label_values)
 	num = num or 0
 	label_values = label_values or {}
@@ -297,6 +392,8 @@ function Histogram:observe(num, label_values)
 	end
 end
 
+--- Collect histogram metrics as Prometheus text lines.
+--- @return string[]
 function Histogram:collect()
 	local result = {}
 
@@ -328,30 +425,50 @@ end
 
 -- #################### Public API ####################
 
+--- Create and register a new Counter metric.
+--- @param name string Metric name
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @return Counter
 local function counter(name, help, labels)
 	local obj = Counter.new(name, help, labels)
 	obj = register(obj)
 	return obj
 end
 
+--- Create and register a new Gauge metric.
+--- @param name string Metric name
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @return Gauge
 local function gauge(name, help, labels)
 	local obj = Gauge.new(name, help, labels)
 	obj = register(obj)
 	return obj
 end
 
+--- Create and register a new Histogram metric.
+--- @param name string Metric name
+--- @param help string? Help text
+--- @param labels string[]? Label names
+--- @param buckets number[]? Bucket boundaries
+--- @return Histogram
 local function histogram(name, help, labels, buckets)
 	local obj = Histogram.new(name, help, labels, buckets)
 	obj = register(obj)
 	return obj
 end
 
+--- Collect all registered metrics and return as a single newline-delimited string.
+--- @return string
 local function collect()
 	local registry = get_registry()
 
 	return table.concat(registry:collect(), "\n") .. "\n"
 end
 
+--- Collect all metrics formatted as an HTTP response table.
+--- @return {status: integer, headers: table<string, string>, body: string}
 local function collect_http()
 	return {
 		status = 200,
@@ -360,18 +477,30 @@ local function collect_http()
 	}
 end
 
+--- Clear all registered collectors and callbacks.
 local function clear()
 	local registry = get_registry()
 	registry.collectors = {}
 	registry.callbacks = {}
 end
 
+--- Initialize the registry with Tarantool-specific metrics (not used in Factorio context).
 local function init()
 	local registry = get_registry()
 	local tarantool_metrics = require("prometheus.tarantool-metrics")
 	registry:register_callback(tarantool_metrics.measure_tarantool_metrics)
 end
 
+--- @class PrometheusModule
+--- @field counter fun(name: string, help?: string, labels?: string[]): Counter
+--- @field gauge fun(name: string, help?: string, labels?: string[]): Gauge
+--- @field histogram fun(name: string, help?: string, labels?: string[], buckets?: number[]): Histogram
+--- @field collect fun(): string
+--- @field collect_http fun(): {status: integer, headers: table<string, string>, body: string}
+--- @field clear fun()
+--- @field init fun()
+
+--- @type PrometheusModule
 return {
 	counter = counter,
 	gauge = gauge,

@@ -1,3 +1,8 @@
+-- settings.lua
+-- Mod startup settings for graftorio2
+-- Runs in the data stage where `data:extend()` is the main API
+
+--- @type data.StringSettingPrototype | data.IntSettingPrototype | data.BoolSettingPrototype
 data:extend({
 	{
 		type = "string-setting",
