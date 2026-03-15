@@ -33,7 +33,7 @@ end
 --- Despite the parameter name in the original code, this receives a LuaPlayer from events.lua
 --- and accesses the force via `player.force`. Called as `on_research_tick(player, event)`.
 --- @param player LuaPlayer A player whose force will be used for research metrics
---- @param event NthTickEventData
+--- @param event NthTickEventData|EventData
 function on_research_tick(player, event)
 	if event.tick then
 		gauge_research_queue:reset()
