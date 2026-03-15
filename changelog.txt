@@ -1,0 +1,10 @@
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: 2026-03-15
+  Features:
+    - add Justfile
+  Optimizations:
+    - performance improvements and misc fix
+  Bugfixes:
+    - correct the git path
+    - correctly look up max wire distance
