@@ -225,44 +225,38 @@ function on_power_tick(event)
 
 		for idx, network in pairs(script_data.networks) do
 			-- Check if this entity has failed lookups recently
-			if script_data.failed_lookups[network.entity_number] and
-			   event.tick - script_data.failed_lookups[network.entity_number] < FAILED_LOOKUP_BACKOFF_TICKS then
-				goto skip_network
-			end
+			if not (script_data.failed_lookups[network.entity_number] and
+			   event.tick - script_data.failed_lookups[network.entity_number] < FAILED_LOOKUP_BACKOFF_TICKS) then
+				local entity = find_entity(network.entity_number, "electric-pole")
 
-			local entity = find_entity(network.entity_number, "electric-pole")
-
-			if not entity then
-				-- Mark as failed lookup and remove invalid network instead of rescanning
-				script_data.failed_lookups[network.entity_number] = event.tick
-				script_data.networks[idx] = nil
-				goto skip_network
-			end
-
-			if
-				entity
-				and entity.valid
-				and not ignored[entity.electric_network_id]
-				and entity.electric_network_id == idx
-			then
-				-- Clear failed lookup tracking if entity is found and valid
-				script_data.failed_lookups[network.entity_number] = nil
-				local force_name = entity.force.name
-				local surface_name = entity.surface.name
-				for name, n in pairs(entity.electric_network_statistics.input_counts) do
-					gauge_power_production_input:set(n, { force_name, name, idx, surface_name })
+				if not entity then
+					-- Mark as failed lookup and remove invalid network instead of rescanning
+					script_data.failed_lookups[network.entity_number] = event.tick
+					script_data.networks[idx] = nil
+				elseif
+					entity
+					and entity.valid
+					and not ignored[entity.electric_network_id]
+					and entity.electric_network_id == idx
+				then
+					-- Clear failed lookup tracking if entity is found and valid
+					script_data.failed_lookups[network.entity_number] = nil
+					local force_name = entity.force.name
+					local surface_name = entity.surface.name
+					for name, n in pairs(entity.electric_network_statistics.input_counts) do
+						gauge_power_production_input:set(n, { force_name, name, idx, surface_name })
+					end
+					for name, n in pairs(entity.electric_network_statistics.output_counts) do
+						gauge_power_production_output:set(n, { force_name, name, idx, surface_name })
+					end
+				elseif entity and entity.valid and entity.electric_network_id ~= idx then
+					-- assume this network has been merged with some other so unset
+					script_data.networks[idx] = nil
+				elseif entity and not entity.valid then
+					-- Invalid entity remove anyhow
+					script_data.networks[idx] = nil
 				end
-				for name, n in pairs(entity.electric_network_statistics.output_counts) do
-					gauge_power_production_output:set(n, { force_name, name, idx, surface_name })
-				end
-			elseif entity and entity.valid and entity.electric_network_id ~= idx then
-				-- assume this network has been merged with some other so unset
-				script_data.networks[idx] = nil
-			elseif entity and not entity.valid then
-				-- Invalid entity remove anyhow
-				script_data.networks[idx] = nil
 			end
-			::skip_network::
 		end
 	end
 end

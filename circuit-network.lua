@@ -82,36 +82,34 @@ function on_circuit_network_tick(event)
 			-- Validate entity and clean up invalid references
 			if not combinator.valid then
 				data.combinators[unit_number] = nil
-				goto continue
-			end
-
-			-- Deduplicate networks at combinator level to avoid checking both wire types for same network
-			--- @type table<uint, boolean>
-			local networks_checked = {}
-			for _, wire_type in pairs({ defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green }) do
-				local network = combinator.get_circuit_network(wire_type)
-				if network ~= nil and not seen[network.network_id] and not networks_checked[network.network_id] and network.signals ~= nil then
-					-- Mark as checked for both seen (global) and this combinator
-					networks_checked[network.network_id] = true
-					seen[network.network_id] = true
-					local network_id = tostring(network.network_id)
-					gauge_circuit_network_monitored:set(
-						1,
-						{ combinator.force.name, combinator.surface.name, network_id }
-					)
-					for _, signal in ipairs(network.signals) do
-						local quality_name = signal.signal.quality and signal.signal.quality.name or "normal"
-						gauge_circuit_network_signal:set(signal.count, {
-							combinator.force.name,
-							combinator.surface.name,
-							network_id,
-							signal.signal.name,
-							quality_name,
-						})
+			else
+				-- Deduplicate networks at combinator level to avoid checking both wire types for same network
+				--- @type table<uint, boolean>
+				local networks_checked = {}
+				for _, wire_type in pairs({ defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green }) do
+					local network = combinator.get_circuit_network(wire_type)
+					if network ~= nil and not seen[network.network_id] and not networks_checked[network.network_id] and network.signals ~= nil then
+						-- Mark as checked for both seen (global) and this combinator
+						networks_checked[network.network_id] = true
+						seen[network.network_id] = true
+						local network_id = tostring(network.network_id)
+						gauge_circuit_network_monitored:set(
+							1,
+							{ combinator.force.name, combinator.surface.name, network_id }
+						)
+						for _, signal in ipairs(network.signals) do
+							local quality_name = signal.signal.quality and signal.signal.quality.name or "normal"
+							gauge_circuit_network_signal:set(signal.count, {
+								combinator.force.name,
+								combinator.surface.name,
+								network_id,
+								signal.signal.name,
+								quality_name,
+							})
+						end
 					end
 				end
 			end
-			::continue::
 		end
 	end
 end
