@@ -13,5 +13,7 @@
     "Lua.workspace.checkThirdParty": "ApplyInMemory",
     "github-actions.workflows.pinned.workflows": [
         ".github/workflows/release.yml"
-    ]
+    ],
+    "github-actions.workflows.pinned.refresh.enabled": true,
+    "github-actions.workflows.pinned.refresh.interval": 30,
 }
