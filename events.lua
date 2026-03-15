@@ -15,7 +15,7 @@
 -- Phase 10: power network stats — per surface
 -- Phase 11: circuit prepare (rescan, reset, group) — resumable
 -- Phase 12: circuit network signals + K2 reactors — per surface
--- Phase 13: serialize metrics — resumable (N output lines per tick)
+-- Phase 13: serialize metrics — resumable (N weighted metrics per tick)
 -- Phase 14: write .prom file — single tick
 --
 -- Total ticks per cycle is now 8 + 8×S plus any extra ticks needed to finish
@@ -31,7 +31,8 @@ local surface_idx = 0           -- current position within cached_surfaces for p
 local serialized_metrics = nil  -- holds serialized prometheus output between serialize and write phases
 local serialize_started = false -- tracks whether chunked serialization has been initialized
 
--- Budget: number of output lines to serialize per tick (observations, not whole collectors)
+-- Budget: number of weighted metric observations to serialize per tick.
+-- Multi-line metric types consume more than one budget unit per observation.
 local SERIALIZE_METRICS_PER_TICK = 50
 
 -- Phase constants
@@ -341,9 +342,9 @@ local function collect_circuits_surface(surface)
 	end
 end
 
---- Phase 13: Serialize metrics — resumable (N output lines per tick).
+--- Phase 13: Serialize metrics — resumable (N weighted metrics per tick).
 --- First call initializes chunked collection; subsequent calls process a fixed
---- budget of output lines. Returns true when serialization is complete.
+--- budget of weighted metric observations. Returns true when serialization is complete.
 --- @param event EventData
 --- @return boolean done
 local function serialize_metrics_resumable(event)

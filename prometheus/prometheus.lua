@@ -3,6 +3,7 @@
 
 local INF = math.huge
 local NAN = math.huge * 0
+local MULTILINE_OBSERVATION_COST = 5
 
 --- Default histogram bucket boundaries (seconds).
 --- @type number[]
@@ -244,6 +245,12 @@ function Counter:collect_observation(key)
 	return { self.name .. labels_to_string(labels) .. " " .. metric_to_string(observation) }
 end
 
+--- Return the weighted chunk cost for one counter observation.
+--- @return integer
+function Counter:observation_cost()
+	return 1
+end
+
 --- @class Gauge
 --- @field name string Metric name
 --- @field help string Help text
@@ -369,6 +376,12 @@ function Gauge:collect_observation(key)
 	local label_values = self.label_values[key]
 	local labels = zip(self.labels, label_values)
 	return { self.name .. labels_to_string(labels) .. " " .. metric_to_string(observation) }
+end
+
+--- Return the weighted chunk cost for one gauge observation.
+--- @return integer
+function Gauge:observation_cost()
+	return 1
 end
 
 --- @class Histogram
@@ -518,6 +531,14 @@ function Histogram:collect_observation(key)
 	return result
 end
 
+--- Return the weighted chunk cost for one histogram observation.
+--- Histograms emit many Prometheus lines per observation, so they consume more
+--- of the per-tick chunk budget than single-line metric types.
+--- @return integer
+function Histogram:observation_cost()
+	return MULTILINE_OBSERVATION_COST
+end
+
 -- #################### Public API ####################
 
 --- Create and register a new Counter metric.
@@ -583,11 +604,13 @@ local function collect_chunked_start()
 	}
 end
 
---- Process observations across collectors, emitting up to `budget` output lines
---- per call. Tracks an intra-collector cursor (obs_keys / obs_idx) so that a
+--- Process observations across collectors, consuming up to `budget` weighted
+--- metric observations per call. Tracks an intra-collector cursor (obs_keys / obs_idx) so that a
 --- collector with many observations is spread across multiple ticks.
 --- Returns `true` when all collectors have been fully processed, `false` otherwise.
---- @param budget integer  Number of output lines to emit this tick
+--- Single-line metric types cost 1 budget unit per observation. Multi-line
+--- metric types can cost more so they yield fewer observations per tick.
+--- @param budget integer  Number of weighted metric observations to emit this tick
 --- @return boolean done
 local function collect_chunked_next(budget)
 	if not chunked_state then
@@ -597,9 +620,9 @@ local function collect_chunked_next(budget)
 	local registry = get_registry()
 	local keys = chunked_state.collector_keys
 	local result = chunked_state.result
-	local lines_emitted = 0
+	local budget_used = 0
 
-	while chunked_state.collector_idx <= #keys and lines_emitted < budget do
+	while chunked_state.collector_idx <= #keys and budget_used < budget do
 		local collector_key = keys[chunked_state.collector_idx]
 		local collector = registry.collectors[collector_key]
 
@@ -618,23 +641,30 @@ local function collect_chunked_next(budget)
 				if #chunked_state.obs_keys > 0 then
 					for _, line in ipairs(collector:collect_header()) do
 						result[#result + 1] = line
-						lines_emitted = lines_emitted + 1
 					end
 				end
 			end
 
 			local obs_keys = chunked_state.obs_keys --[[@as string[] ]]
 			local obs_idx = chunked_state.obs_idx --[[@as integer]]
+			local observation_cost = collector:observation_cost()
 
 			-- Process observations one at a time until budget exhausted or done
-			while obs_idx <= #obs_keys and lines_emitted < budget do
+			while obs_idx <= #obs_keys and budget_used < budget do
+				if budget_used > 0 and budget_used + observation_cost > budget then
+					-- Stop this tick once the remaining weighted budget cannot fit the
+					-- next observation, otherwise the outer loop spins on the same cursor.
+					budget_used = budget
+					break
+				end
+
 				local obs_key = obs_keys[obs_idx]
 				local obs_lines = collector:collect_observation(obs_key)
 				if obs_lines then
 					for _, line in ipairs(obs_lines) do
 						result[#result + 1] = line
-						lines_emitted = lines_emitted + 1
 					end
+					budget_used = budget_used + observation_cost
 				end
 				obs_idx = obs_idx + 1
 			end
