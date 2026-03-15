@@ -10,6 +10,7 @@ local CLEANUP_INTERVAL_TICKS = 3600      -- 1 minute
 --- @class PowerNetworkEntry
 --- @field entity_number uint Unit number of the representative electric pole
 --- @field prev {input: table<string, number>, output: table<string, number>} Previous tick's statistics
+--- @field entity LuaEntity? Legacy field from old saves; migrated to entity_number on load
 
 --- @class PowerScriptData
 --- @field has_checked boolean Whether the initial world rescan has been performed this session
@@ -143,7 +144,7 @@ end
 --- Handle entity build events for electric poles and power switches.
 --- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.script_raised_built
 function on_power_build(event)
-	local entity = event.entity or event.created_entity
+	local entity = event.entity or event.created_entity ---@diagnostic disable-line: undefined-field -- Factorio 1.x compat fallback
 	if entity and entity.type == "electric-pole" then
 		if not script_data.networks[entity.electric_network_id] then
 			new_entity_entry(entity)
@@ -163,15 +164,16 @@ function on_power_destroy(event)
 	local entity = event.entity
 	if entity.type == "electric-pole" then
 		local pos = entity.position
+		---@diagnostic disable-next-line: undefined-field -- Factorio API fields not in stubs
 		local max = entity.prototype and entity.prototype.max_wire_distance
-			or game.max_electric_pole_connection_distance
+			or game.max_electric_pole_connection_distance ---@diagnostic disable-line: undefined-field
 		local area = { { pos.x - max, pos.y - max }, { pos.x + max, pos.y + max } }
 		local surface = entity.surface
 		local networks = script_data.networks
 		local current_idx = entity.electric_network_id
 		-- Make sure to create the new network ids before collecting new info
 		if entity.neighbours.copper and event.damage_type == nil then
-			entity.disconnect_neighbour()
+			entity.disconnect_neighbour() ---@diagnostic disable-line: undefined-field -- Factorio API method not in stubs
 		end
 		local finds = surface.find_entities_filtered({ type = "electric-pole", area = area })
 		for _, new_entity in pairs(finds) do
@@ -211,7 +213,7 @@ end
 --- Collect electric network statistics. Called every nth-tick from events.lua.
 --- Iterates all tracked networks, looks up their representative entity, and exports
 --- input/output power statistics per force, network, and surface.
---- @param event EventData.on_nth_tick
+--- @param event NthTickEventData
 function on_power_tick(event)
 	if event.tick then
 		local ignored = get_ignored_networks_by_switches()

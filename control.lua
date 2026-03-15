@@ -8,16 +8,16 @@ require("research")
 require("circuit-network")
 
 --- @type number[] Parsed histogram bucket boundaries for train metrics
-bucket_settings = train_buckets(settings.startup["graftorio2-train-histogram-buckets"].value)
+bucket_settings = train_buckets(settings.startup["graftorio2-train-histogram-buckets"].value --[[@as string]])
 
---- @type uint Number of ticks between metric collection cycles
-nth_tick = settings.startup["graftorio2-nth-tick"].value
+--- @type integer Number of ticks between metric collection cycles
+nth_tick = settings.startup["graftorio2-nth-tick"].value --[[@as integer]]
 
 --- @type boolean Whether to write the .prom file in server-save mode (player 0)
-server_save = settings.startup["graftorio2-server-save"].value
+server_save = settings.startup["graftorio2-server-save"].value --[[@as boolean]]
 
 --- @type boolean Whether train statistics collection is disabled
-disable_train_stats = settings.startup["graftorio2-disable-train-stats"].value
+disable_train_stats = settings.startup["graftorio2-disable-train-stats"].value --[[@as boolean]]
 
 -- ============================================================================
 -- Gauge metrics (no labels)
@@ -281,7 +281,7 @@ end
 script.on_init(function()
 	if script.active_mods["YARM"] then
 		storage.yarm_on_site_update_event_id = remote.call("YARM", "get_on_site_updated_event_id")
-		script.on_event(storage.yarm_on_site_update_event_id, handle_yarm)
+		script.on_event(storage.yarm_on_site_update_event_id --[[@as string]], handle_yarm)
 	end
 
 	on_power_init()
@@ -296,7 +296,7 @@ script.on_load(function()
 		-- Use pcall to safely check if the event ID is valid
 		local success, handler = pcall(script.get_event_handler, storage.yarm_on_site_update_event_id)
 		if success and handler then
-			script.on_event(storage.yarm_on_site_update_event_id, handle_yarm)
+			script.on_event(storage.yarm_on_site_update_event_id --[[@as string]], handle_yarm)
 		end
 	end
 
@@ -309,6 +309,6 @@ end)
 script.on_configuration_changed(function(event)
 	if script.active_mods["YARM"] then
 		storage.yarm_on_site_update_event_id = remote.call("YARM", "get_on_site_updated_event_id")
-		script.on_event(storage.yarm_on_site_update_event_id, handle_yarm)
+		script.on_event(storage.yarm_on_site_update_event_id --[[@as string]], handle_yarm)
 	end
 end)

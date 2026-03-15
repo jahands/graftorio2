@@ -6,7 +6,7 @@
 --- Main nth-tick event handler. Collects all game metrics and writes the Prometheus export file.
 --- Iterates surfaces for seeds/pollution, forces (via players) for production/evolution/logistics,
 --- and delegates to sub-module tick handlers for power, circuit networks, and research.
---- @param event EventData.on_nth_tick
+--- @param event NthTickEventData
 function register_events(event)
 	gauge_tick:set(game.tick)
 
@@ -110,7 +110,7 @@ function register_events(event)
 					local contents = network.get_contents()
 					if contents ~= nil then
 						for _, entry in ipairs(contents) do
-							local quality_name = entry.quality and entry.quality.name or "normal"
+							local quality_name = entry.quality and entry.quality.name or "normal" ---@diagnostic disable-line: undefined-field -- quality.name exists at runtime
 							gauge_logistic_network_items:set(entry.count, { player.force.name, surface, network_id, entry.name, quality_name })
 						end
 					end

@@ -87,8 +87,9 @@ local function get_registry()
 end
 
 --- Register a collector with the global singleton registry.
---- @param collector Counter|Gauge|Histogram
---- @return Counter|Gauge|Histogram
+--- @generic T: Counter|Gauge|Histogram
+--- @param collector T
+--- @return T
 local function register(collector)
 	local registry = get_registry()
 	registry:register(collector)
@@ -139,7 +140,7 @@ end
 --- @param str string
 --- @return string
 local function escape_string(str)
-	return str:gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub('"', '\\"')
+	return (str:gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub('"', '\\"'))
 end
 
 --- Format label pairs as a Prometheus label string like `{key="value",...}`.

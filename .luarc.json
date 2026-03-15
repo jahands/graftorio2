@@ -4,7 +4,15 @@
     "version": "Lua 5.2"
   },
   "workspace": {
-    "library": [],
+    "library": [
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/runtime-api",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/runtime",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/core",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/lua"
+    ],
+    "userThirdParty": [
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd"
+    ],
     "checkThirdParty": "ApplyInMemory"
   },
   "diagnostics": {
