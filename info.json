@@ -1,6 +1,6 @@
 {
   "name": "graftorio2-geo",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "title": "graftorio2 - Geo's version",
   "author": "Geostyx",
   "description": "Visualize metrics from your factorio game in grafana",
