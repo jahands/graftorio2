@@ -1,18 +1,57 @@
 -- events.lua
 -- Main metric collection event handler
--- Spreads metric collection across 9 consecutive game ticks to amortize cost
--- Phase 1: globals (tick, seeds, mods, pollution)
--- Phase 2: item + fluid production stats
--- Phase 3: kill + entity build count stats
--- Phase 4: evolution factors + items launched
--- Phase 5: logistic networks
--- Phase 6: research queue + Space Age platforms
--- Phase 7: power networks
--- Phase 8: circuit networks + Krastorio2 reactors
--- Phase 9: serialize + write .prom file
+-- Spreads metric collection across multiple game ticks to amortize cost
+-- Per-surface phases process one surface per tick for maximum granularity
+--
+-- Phase 1:  globals (tick, seeds, mods) — single tick
+-- Phase 2:  pollution stats — per surface
+-- Phase 3:  item + fluid production stats — per surface
+-- Phase 4:  kill + entity build count stats — per surface
+-- Phase 5:  evolution factors + items launched — per surface
+-- Phase 6:  logistic networks — per surface
+-- Phase 7:  research queue + Space Age platforms — single tick
+-- Phase 8:  power networks — single tick
+-- Phase 9:  circuit networks + Krastorio2 reactors — single tick
+-- Phase 10: serialize + write .prom file — single tick
+--
+-- Total ticks per cycle = 6 + 5×S where S = number of surfaces.
+-- For a typical Space Age game with 6 surfaces: 36 ticks (~0.6s at 60 UPS),
+-- well within the default 300-tick (5s) collection interval.
 
--- Module-local state: resets to 0 on save/load (not persisted in storage)
+-- ============================================================================
+-- Module-local state (resets on save/load — not persisted in storage)
+-- ============================================================================
+
 local collection_phase = 0
+local cached_surfaces = {}  -- array of LuaSurface, snapshot captured at cycle start
+local surface_idx = 0       -- current position within cached_surfaces for per-surface phases
+
+-- Phase constants
+local PHASE_IDLE = 0
+local PHASE_GLOBALS = 1              -- single tick
+local PHASE_POLLUTION = 2            -- per surface
+local PHASE_PRODUCTION = 3           -- per surface
+local PHASE_MILITARY = 4             -- per surface
+local PHASE_EVOLUTION = 5            -- per surface
+local PHASE_LOGISTICS = 6            -- per surface
+local PHASE_RESEARCH_PLATFORMS = 7   -- single tick
+local PHASE_POWER = 8               -- single tick
+local PHASE_CIRCUITS = 9            -- single tick
+local PHASE_EXPORT = 10              -- single tick
+local PHASE_MAX = 10
+
+-- Set of phases that iterate one surface per tick
+local per_surface_phase = {
+	[PHASE_POLLUTION] = true,
+	[PHASE_PRODUCTION] = true,
+	[PHASE_MILITARY] = true,
+	[PHASE_EVOLUTION] = true,
+	[PHASE_LOGISTICS] = true,
+}
+
+-- ============================================================================
+-- Helpers
+-- ============================================================================
 
 --- Iterate game.players, deduplicate by force.name, call callback(player) once per unique force.
 --- The callback receives a LuaPlayer so it can access both player.force and pass the player
@@ -33,7 +72,8 @@ end
 -- Phase functions
 -- ============================================================================
 
---- Phase 1: Globals — game tick, seeds, mods, pollution stats
+--- Phase 1: Globals — game tick, seeds, mods (single tick).
+--- Also captures the surface list for subsequent per-surface phases.
 local function collect_globals()
 	gauge_tick:set(game.tick)
 
@@ -44,123 +84,127 @@ local function collect_globals()
 	for name, version in pairs(script.active_mods) do
 		gauge_mods:set(1, { name, version })
 	end
+end
 
-	for _, surface in pairs(game.surfaces) do
-		local stats = game.get_pollution_statistics(surface)
-		for name, n in pairs(stats.input_counts) do
-			gauge_pollution_production_input:set(n, { name, surface.name })
-		end
-		for name, n in pairs(stats.output_counts) do
-			gauge_pollution_production_output:set(n, { name, surface.name })
-		end
+--- Phase 2: Pollution stats for a single surface.
+--- @param surface LuaSurface
+local function collect_pollution_surface(surface)
+	local stats = game.get_pollution_statistics(surface)
+	for name, n in pairs(stats.input_counts) do
+		gauge_pollution_production_input:set(n, { name, surface.name })
+	end
+	for name, n in pairs(stats.output_counts) do
+		gauge_pollution_production_output:set(n, { name, surface.name })
 	end
 end
 
---- Phase 2: Item + fluid production stats (per force x surface)
-local function collect_production()
+--- Phase 3: Item + fluid production stats for a single surface (all forces).
+--- @param surface LuaSurface
+local function collect_production_surface(surface)
 	for_each_force(function(player)
-		for _, surface in pairs(game.surfaces) do
-			--- @type {[1]: LuaFlowStatistics, [2]: Gauge, [3]: Gauge}[]
-			local stats = {
-				{ player.force.get_item_production_statistics(surface), gauge_item_production_input, gauge_item_production_output },
-				{ player.force.get_fluid_production_statistics(surface), gauge_fluid_production_input, gauge_fluid_production_output },
-			}
+		--- @type {[1]: LuaFlowStatistics, [2]: Gauge, [3]: Gauge}[]
+		local stats = {
+			{ player.force.get_item_production_statistics(surface), gauge_item_production_input, gauge_item_production_output },
+			{ player.force.get_fluid_production_statistics(surface), gauge_fluid_production_input, gauge_fluid_production_output },
+		}
 
-			for _, stat in pairs(stats) do
-				for name, n in pairs(stat[1].input_counts) do
-					stat[2]:set(n, { player.force.name, name, surface.name })
-				end
-				for name, n in pairs(stat[1].output_counts) do
-					stat[3]:set(n, { player.force.name, name, surface.name })
-				end
+		for _, stat in pairs(stats) do
+			for name, n in pairs(stat[1].input_counts) do
+				stat[2]:set(n, { player.force.name, name, surface.name })
+			end
+			for name, n in pairs(stat[1].output_counts) do
+				stat[3]:set(n, { player.force.name, name, surface.name })
 			end
 		end
 	end)
 end
 
---- Phase 3: Kill counts + entity build counts (per force x surface)
-local function collect_military()
+--- Phase 4: Kill counts + entity build counts for a single surface (all forces).
+--- @param surface LuaSurface
+local function collect_military_surface(surface)
 	for_each_force(function(player)
-		for _, surface in pairs(game.surfaces) do
-			--- @type {[1]: LuaFlowStatistics, [2]: Gauge, [3]: Gauge}[]
-			local stats = {
-				{ player.force.get_kill_count_statistics(surface), gauge_kill_count_input, gauge_kill_count_output },
-				{ player.force.get_entity_build_count_statistics(surface), gauge_entity_build_count_input, gauge_entity_build_count_output },
-			}
+		--- @type {[1]: LuaFlowStatistics, [2]: Gauge, [3]: Gauge}[]
+		local stats = {
+			{ player.force.get_kill_count_statistics(surface), gauge_kill_count_input, gauge_kill_count_output },
+			{ player.force.get_entity_build_count_statistics(surface), gauge_entity_build_count_input, gauge_entity_build_count_output },
+		}
 
-			for _, stat in pairs(stats) do
-				for name, n in pairs(stat[1].input_counts) do
-					stat[2]:set(n, { player.force.name, name, surface.name })
-				end
-				for name, n in pairs(stat[1].output_counts) do
-					stat[3]:set(n, { player.force.name, name, surface.name })
-				end
+		for _, stat in pairs(stats) do
+			for name, n in pairs(stat[1].input_counts) do
+				stat[2]:set(n, { player.force.name, name, surface.name })
+			end
+			for name, n in pairs(stat[1].output_counts) do
+				stat[3]:set(n, { player.force.name, name, surface.name })
 			end
 		end
 	end)
 end
 
---- Phase 4: Evolution factors + items launched (per force x surface)
-local function collect_evolution()
+--- Phase 5: Evolution factors + items launched for a single surface (all forces).
+--- @param surface LuaSurface
+local function collect_evolution_surface(surface)
 	for_each_force(function(player)
-		for _, surface in pairs(game.surfaces) do
-			--- @type {[1]: number, [2]: string}[]
-			local evolution = {
-				{ player.force.get_evolution_factor(surface), "total" },
-				{ player.force.get_evolution_factor_by_pollution(surface), "by_pollution" },
-				{ player.force.get_evolution_factor_by_time(surface), "by_time" },
-				{ player.force.get_evolution_factor_by_killing_spawners(surface), "by_killing_spawners" },
-			}
+		--- @type {[1]: number, [2]: string}[]
+		local evolution = {
+			{ player.force.get_evolution_factor(surface), "total" },
+			{ player.force.get_evolution_factor_by_pollution(surface), "by_pollution" },
+			{ player.force.get_evolution_factor_by_time(surface), "by_time" },
+			{ player.force.get_evolution_factor_by_killing_spawners(surface), "by_killing_spawners" },
+		}
 
-			for _, stat in pairs(evolution) do
-				gauge_evolution:set(stat[1], { player.force.name, stat[2], surface.name })
-			end
+		for _, stat in pairs(evolution) do
+			gauge_evolution:set(stat[1], { player.force.name, stat[2], surface.name })
+		end
 
-			for _, entry in ipairs(player.force.items_launched) do
-				local quality_name = entry.quality and entry.quality.name or "normal"
-				gauge_items_launched:set(entry.count, { player.force.name, entry.name, quality_name })
-			end
+		for _, entry in ipairs(player.force.items_launched) do
+			local quality_name = entry.quality and entry.quality.name or "normal"
+			gauge_items_launched:set(entry.count, { player.force.name, entry.name, quality_name })
 		end
 	end)
 end
 
---- Phase 5: Logistic networks — robot counts + get_contents() (per force)
-local function collect_logistics()
-	-- Reset logistic gauges before collecting new data
-	gauge_logistic_network_all_logistic_robots:reset()
-	gauge_logistic_network_available_logistic_robots:reset()
-	gauge_logistic_network_all_construction_robots:reset()
-	gauge_logistic_network_available_construction_robots:reset()
-	gauge_logistic_network_robot_limit:reset()
-	gauge_logistic_network_items:reset()
+--- Phase 6: Logistic networks for a single surface (all forces).
+--- Resets logistic gauges on the first surface of the phase (surface_idx == 1).
+--- @param surface LuaSurface
+local function collect_logistics_surface(surface)
+	-- Reset logistic gauges once at the start of the logistics phase
+	if surface_idx == 1 then
+		gauge_logistic_network_all_logistic_robots:reset()
+		gauge_logistic_network_available_logistic_robots:reset()
+		gauge_logistic_network_all_construction_robots:reset()
+		gauge_logistic_network_available_construction_robots:reset()
+		gauge_logistic_network_robot_limit:reset()
+		gauge_logistic_network_items:reset()
+	end
 
 	for_each_force(function(player)
-		for surface, networks in pairs(player.force.logistic_networks) do
+		local networks = player.force.logistic_networks[surface.name]
+		if networks then
 			for _, network in ipairs(networks) do
 				local network_id = tostring(network.network_id)
 				gauge_logistic_network_all_logistic_robots:set(
 					network.all_logistic_robots,
-					{ player.force.name, surface, network_id }
+					{ player.force.name, surface.name, network_id }
 				)
 				gauge_logistic_network_available_logistic_robots:set(
 					network.available_logistic_robots,
-					{ player.force.name, surface, network_id }
+					{ player.force.name, surface.name, network_id }
 				)
 				gauge_logistic_network_all_construction_robots:set(
 					network.all_construction_robots,
-					{ player.force.name, surface, network_id }
+					{ player.force.name, surface.name, network_id }
 				)
 				gauge_logistic_network_available_construction_robots:set(
 					network.available_construction_robots,
-					{ player.force.name, surface, network_id }
+					{ player.force.name, surface.name, network_id }
 				)
-				gauge_logistic_network_robot_limit:set(network.robot_limit, { player.force.name, surface, network_id })
+				gauge_logistic_network_robot_limit:set(network.robot_limit, { player.force.name, surface.name, network_id })
 				-- Cache get_contents() call to avoid calling expensive API twice
 				local contents = network.get_contents()
 				if contents ~= nil then
 					for _, entry in ipairs(contents) do
 						local quality_name = entry.quality and entry.quality.name or "normal" ---@diagnostic disable-line: undefined-field -- quality.name exists at runtime
-						gauge_logistic_network_items:set(entry.count, { player.force.name, surface, network_id, entry.name, quality_name })
+						gauge_logistic_network_items:set(entry.count, { player.force.name, surface.name, network_id, entry.name, quality_name })
 					end
 				end
 			end
@@ -168,8 +212,8 @@ local function collect_logistics()
 	end)
 end
 
---- Phase 6: Research queue + Space Age platforms (per force)
---- @param event NthTickEventData|EventData
+--- Phase 7: Research queue + Space Age platforms (single tick, per force).
+--- @param event EventData
 local function collect_research_platforms(event)
 	for_each_force(function(player)
 		-- research tick handler (process once per force, not per player)
@@ -224,14 +268,14 @@ local function collect_research_platforms(event)
 	end)
 end
 
---- Phase 7: Power networks — delegates to on_power_tick
---- @param event NthTickEventData|EventData
+--- Phase 8: Power networks — delegates to on_power_tick (single tick).
+--- @param event EventData
 local function collect_power(event)
 	on_power_tick(event)
 end
 
---- Phase 8: Circuit networks + Krastorio2 reactors
---- @param event NthTickEventData|EventData
+--- Phase 9: Circuit networks + Krastorio2 reactors (single tick).
+--- @param event EventData
 local function collect_circuits(event)
 	-- circuit network tick handler
 	on_circuit_network_tick(event)
@@ -260,7 +304,7 @@ local function collect_circuits(event)
 	end
 end
 
---- Phase 9: Serialize metrics and write .prom file
+--- Phase 10: Serialize metrics and write .prom file (single tick).
 local function export_metrics()
 	if server_save then
 		helpers.write_file("graftorio2/game.prom", prometheus.collect(), false, 0)
@@ -270,62 +314,93 @@ local function export_metrics()
 end
 
 -- ============================================================================
--- Phase dispatch table
+-- Dispatch tables
 -- ============================================================================
 
---- Phase dispatch: maps collection_phase number to the function to execute.
---- Phases 2–5 don't need the event; phases 6–8 pass it through for tick guards.
+--- Per-surface phase dispatch: maps phase number to function(surface).
+--- @type table<integer, fun(surface: LuaSurface)>
+local surface_phase_dispatch = {
+	[PHASE_POLLUTION] = collect_pollution_surface,
+	[PHASE_PRODUCTION] = collect_production_surface,
+	[PHASE_MILITARY] = collect_military_surface,
+	[PHASE_EVOLUTION] = collect_evolution_surface,
+	[PHASE_LOGISTICS] = collect_logistics_surface,
+}
+
+--- Single-tick phase dispatch: maps phase number to function(event).
 --- @type table<integer, fun(event: EventData)>
-local phase_dispatch = {
-	[2] = function(_event) collect_production() end,
-	[3] = function(_event) collect_military() end,
-	[4] = function(_event) collect_evolution() end,
-	[5] = function(_event) collect_logistics() end,
-	[6] = function(event) collect_research_platforms(event) end,
-	[7] = function(event) collect_power(event) end,
-	[8] = function(event) collect_circuits(event) end,
-	[9] = function(_event) export_metrics() end,
+local single_phase_dispatch = {
+	[PHASE_GLOBALS] = collect_globals,
+	[PHASE_RESEARCH_PLATFORMS] = collect_research_platforms,
+	[PHASE_POWER] = collect_power,
+	[PHASE_CIRCUITS] = collect_circuits,
+	[PHASE_EXPORT] = export_metrics,
 }
 
 -- ============================================================================
 -- Event handlers
 -- ============================================================================
 
---- Main nth-tick event handler. Starts a new collection cycle (Phase 1) and sets
---- collection_phase so that subsequent on_tick calls execute phases 2–9.
+--- Main nth-tick event handler. Starts a new collection cycle.
+--- Snapshots the surface list and sets collection_phase to 1 so that
+--- collection_tick begins executing phases on subsequent ticks.
 --- Re-entry guard: if a collection is already in progress, skip.
 --- @param event NthTickEventData
 function register_events(event)
 	-- Re-entry guard: skip if a collection cycle is already in progress
-	if collection_phase > 0 then
+	if collection_phase > PHASE_IDLE then
 		return
 	end
 
-	-- Phase 1: globals (tick, seeds, mods, pollution)
-	collect_globals()
+	-- Snapshot the surface list for this cycle (stable across all per-surface phases)
+	cached_surfaces = {}
+	for _, surface in pairs(game.surfaces) do
+		cached_surfaces[#cached_surfaces + 1] = surface
+	end
+	surface_idx = 1
 
 	-- Start the phased collection cycle
-	collection_phase = 2
+	collection_phase = PHASE_GLOBALS
 end
 
---- On-tick handler for phased collection. Executes one phase per tick.
+--- On-tick handler for phased collection. Executes one phase (or one surface of a
+--- per-surface phase) per tick.
 --- Fast path: returns immediately if no collection is in progress (collection_phase == 0).
 --- @param event EventData.on_tick
 function collection_tick(event)
-	if collection_phase == 0 then
+	if collection_phase == PHASE_IDLE then
 		return
 	end
 
-	local phase_fn = phase_dispatch[collection_phase]
-	if phase_fn then
-		phase_fn(event)
+	if per_surface_phase[collection_phase] then
+		-- Per-surface phase: process one surface this tick
+		local surface = cached_surfaces[surface_idx]
+		if surface and surface.valid then
+			surface_phase_dispatch[collection_phase](surface)
+		end
+
+		if surface_idx >= #cached_surfaces then
+			-- All surfaces done for this phase, advance to next phase
+			surface_idx = 1
+			collection_phase = collection_phase + 1
+		else
+			-- More surfaces remain, stay in this phase
+			surface_idx = surface_idx + 1
+		end
+	else
+		-- Single-tick phase: execute and advance
+		local phase_fn = single_phase_dispatch[collection_phase]
+		if phase_fn then
+			phase_fn(event)
+		end
+		collection_phase = collection_phase + 1
 	end
 
-	-- Advance to next phase, or reset to idle after phase 9
-	if collection_phase >= 9 then
-		collection_phase = 0
-	else
-		collection_phase = collection_phase + 1
+	-- Check if all phases are complete
+	if collection_phase > PHASE_MAX then
+		collection_phase = PHASE_IDLE
+		cached_surfaces = {}
+		surface_idx = 0
 	end
 end
 
