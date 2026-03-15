@@ -34,7 +34,7 @@ end
 --- Handle entity build events. Adds new constant combinators to tracking.
 --- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.script_raised_built
 function on_circuit_network_build(event)
-	local entity = event.entity or event.created_entity ---@diagnostic disable-line: undefined-field -- Factorio 1.x compat fallback
+	local entity = event.entity
 	if entity and entity.name == "constant-combinator" then
 		if data.inited then
 			-- Incremental update: add single combinator instead of full rescan

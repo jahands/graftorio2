@@ -10,12 +10,11 @@ local CLEANUP_INTERVAL_TICKS = 3600      -- 1 minute
 --- @class PowerNetworkEntry
 --- @field entity_number uint Unit number of the representative electric pole
 --- @field prev {input: table<string, number>, output: table<string, number>} Previous tick's statistics
---- @field entity LuaEntity? Legacy field from old saves; migrated to entity_number on load
 
 --- @class PowerScriptData
 --- @field has_checked boolean Whether the initial world rescan has been performed this session
 --- @field networks table<uint, PowerNetworkEntry> Electric network ID -> network entry
---- @field switches table<uint, integer|LuaEntity> Power switch tracking (unit_number -> 1 sentinel or legacy entity ref)
+--- @field switches table<uint, integer> Power switch tracking (unit_number -> 1 sentinel)
 --- @field ignored_networks_cache table<uint, boolean>? Cached set of network IDs to ignore (behind power switches)
 --- @field ignored_networks_dirty boolean Whether the ignored networks cache needs recalculation
 --- @field failed_lookups table<uint, uint> Entity unit_number -> tick of last failed lookup (for backoff)
@@ -77,11 +76,6 @@ local function rescan_worlds()
 	--- @type table<uint, boolean>
 	local remove = {}
 	for idx, network in pairs(networks) do
-		if network.entity then
-			network.entity_number = network.entity.unit_number
-			network.entity = nil
-		end
-
 		if network.entity_number then
 			local assoc = find_entity(network.entity_number, "electric-pole")
 			if not assoc then
@@ -121,12 +115,7 @@ local function get_ignored_networks_by_switches()
 	--- @type table<uint, boolean>
 	local ignored = {}
 	local max = math.max
-	for switch_id, val in pairs(script_data.switches) do
-		-- assume old entity
-		if val ~= 1 and val and val.valid then
-			script_data.switches[val.unit_number] = 1
-			script_data.switches[switch_id] = nil
-		end
+	for switch_id, _ in pairs(script_data.switches) do
 		local switch = find_entity(switch_id, "power-switch")
 		if switch and switch.power_switch_state and #switch.neighbours.copper > 1 then
 			local network =
@@ -144,7 +133,7 @@ end
 --- Handle entity build events for electric poles and power switches.
 --- @param event EventData.on_built_entity|EventData.on_robot_built_entity|EventData.script_raised_built
 function on_power_build(event)
-	local entity = event.entity or event.created_entity ---@diagnostic disable-line: undefined-field -- Factorio 1.x compat fallback
+	local entity = event.entity
 	if entity and entity.type == "electric-pole" then
 		if not script_data.networks[entity.electric_network_id] then
 			new_entity_entry(entity)
@@ -164,9 +153,8 @@ function on_power_destroy(event)
 	local entity = event.entity
 	if entity.type == "electric-pole" then
 		local pos = entity.position
-		---@diagnostic disable-next-line: undefined-field -- Factorio API fields not in stubs
-		local max = entity.prototype and entity.prototype.max_wire_distance
-			or game.max_electric_pole_connection_distance ---@diagnostic disable-line: undefined-field
+		---@diagnostic disable-next-line: undefined-field -- Factorio API field not in stubs
+		local max = entity.prototype.max_wire_distance
 		local area = { { pos.x - max, pos.y - max }, { pos.x + max, pos.y + max } }
 		local surface = entity.surface
 		local networks = script_data.networks
@@ -237,12 +225,6 @@ function on_power_tick(event)
 		gauge_power_production_output:reset()
 
 		for idx, network in pairs(script_data.networks) do
-			-- reset old style in case it still is old
-			if network.entity then
-				network.entity_number = network.entity.unit_number
-				network.entity = nil
-			end
-
 			-- Check if this entity has failed lookups recently
 			if script_data.failed_lookups[network.entity_number] and
 			   event.tick - script_data.failed_lookups[network.entity_number] < FAILED_LOOKUP_BACKOFF_TICKS then
