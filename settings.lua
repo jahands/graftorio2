@@ -15,6 +15,7 @@ data:extend({
 		name = "graftorio2-nth-tick",
 		setting_type = "startup",
 		default_value = 300,
+		minimum_value = 120,
 		allow_blank = false,
 	},
 	{
