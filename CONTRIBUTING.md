@@ -63,8 +63,8 @@ Releases are automated with GitHub Actions and `semantic-release`.
 
 Current repo configuration notes:
 
-- Release automation is configured for pushes to `master` in `.github/workflows/release.yml`.
-- `semantic-release` is also configured to release from `master` in `.releaserc`.
+- Release automation is configured for pushes to `main` in `.github/workflows/release.yml`.
+- `semantic-release` is also configured to release from `main` in `.releaserc`.
 - The workflow requires `FACTORIO_TOKEN` to be configured in GitHub Actions secrets.
 
 ## Manual pre-release checks
