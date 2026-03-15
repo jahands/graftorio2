@@ -153,8 +153,7 @@ function on_power_destroy(event)
 	local entity = event.entity
 	if entity.type == "electric-pole" then
 		local pos = entity.position
-		---@diagnostic disable-next-line: undefined-field -- Factorio API field not in stubs
-		local max = entity.prototype.max_wire_distance
+		local max = entity.prototype.get_max_wire_distance()
 		local area = { { pos.x - max, pos.y - max }, { pos.x + max, pos.y + max } }
 		local surface = entity.surface
 		local networks = script_data.networks
