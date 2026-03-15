@@ -211,6 +211,39 @@ function Counter:collect()
 	return result
 end
 
+--- Return sorted keys of all observations for chunked iteration.
+--- @return string[]
+function Counter:observation_keys()
+	local keys = {}
+	for key, _ in pairs(self.observations) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys)
+	return keys
+end
+
+--- Return the HELP/TYPE header lines for this counter.
+--- @return string[]
+function Counter:collect_header()
+	return {
+		"# HELP " .. self.name .. " " .. escape_string(self.help),
+		"# TYPE " .. self.name .. " counter",
+	}
+end
+
+--- Collect a single observation by key. Returns nil if the key no longer exists.
+--- @param key string
+--- @return string[]?
+function Counter:collect_observation(key)
+	local observation = self.observations[key]
+	if observation == nil then
+		return nil
+	end
+	local label_values = self.label_values[key]
+	local labels = zip(self.labels, label_values)
+	return { self.name .. labels_to_string(labels) .. " " .. metric_to_string(observation) }
+end
+
 --- @class Gauge
 --- @field name string Metric name
 --- @field help string Help text
@@ -303,6 +336,39 @@ function Gauge:collect()
 	end
 
 	return result
+end
+
+--- Return sorted keys of all observations for chunked iteration.
+--- @return string[]
+function Gauge:observation_keys()
+	local keys = {}
+	for key, _ in pairs(self.observations) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys)
+	return keys
+end
+
+--- Return the HELP/TYPE header lines for this gauge.
+--- @return string[]
+function Gauge:collect_header()
+	return {
+		"# HELP " .. self.name .. " " .. escape_string(self.help),
+		"# TYPE " .. self.name .. " gauge",
+	}
+end
+
+--- Collect a single observation by key. Returns nil if the key no longer exists.
+--- @param key string
+--- @return string[]?
+function Gauge:collect_observation(key)
+	local observation = self.observations[key]
+	if observation == nil then
+		return nil
+	end
+	local label_values = self.label_values[key]
+	local labels = zip(self.labels, label_values)
+	return { self.name .. labels_to_string(labels) .. " " .. metric_to_string(observation) }
 end
 
 --- @class Histogram
@@ -407,6 +473,51 @@ function Histogram:collect()
 	return result
 end
 
+--- Return sorted keys of all observations for chunked iteration.
+--- @return string[]
+function Histogram:observation_keys()
+	local keys = {}
+	for key, _ in pairs(self.observations) do
+		keys[#keys + 1] = key
+	end
+	table.sort(keys)
+	return keys
+end
+
+--- Return the HELP/TYPE header lines for this histogram.
+--- @return string[]
+function Histogram:collect_header()
+	return {
+		"# HELP " .. self.name .. " " .. escape_string(self.help),
+		"# TYPE " .. self.name .. " histogram",
+	}
+end
+
+--- Collect a single observation by key. Returns nil if the key no longer exists.
+--- Replicates the le-label append/remove pattern from Histogram:collect().
+--- @param key string
+--- @return string[]?
+function Histogram:collect_observation(key)
+	local observation = self.observations[key]
+	if observation == nil then
+		return nil
+	end
+	local result = {}
+	local label_values = self.label_values[key]
+	local prefix = self.name
+	local labels = zip(self.labels, label_values)
+	labels[#labels + 1] = { le = "0" }
+	for i, bucket in ipairs(self.buckets) do
+		labels[#labels] = { "le", metric_to_string(bucket) }
+		result[#result + 1] = prefix .. "_bucket" .. labels_to_string(labels) .. " " .. metric_to_string(observation[i])
+	end
+	table.remove(labels, #labels)
+
+	result[#result + 1] = prefix .. "_sum" .. labels_to_string(labels) .. " " .. self.sums[key]
+	result[#result + 1] = prefix .. "_count" .. labels_to_string(labels) .. " " .. self.counts[key]
+	return result
+end
+
 -- #################### Public API ####################
 
 --- Create and register a new Counter metric.
@@ -444,7 +555,7 @@ local function histogram(name, help, labels, buckets)
 end
 
 --- Module-local state for chunked (multi-tick) collection.
---- @type {collector_keys: string[], collector_idx: integer, result: string[]}?
+--- @type {collector_keys: string[], collector_idx: integer, result: string[], obs_keys: string[]?, obs_idx: integer?}?
 local chunked_state = nil
 
 --- Begin a chunked collection pass. Invokes registered callbacks (once) and
@@ -472,10 +583,11 @@ local function collect_chunked_start()
 	}
 end
 
---- Process the next `budget` collectors, appending their output lines to the
---- accumulated result table. Returns `true` when all collectors have been
---- processed, `false` otherwise.
---- @param budget integer  Number of collectors to process this tick
+--- Process observations across collectors, emitting up to `budget` output lines
+--- per call. Tracks an intra-collector cursor (obs_keys / obs_idx) so that a
+--- collector with many observations is spread across multiple ticks.
+--- Returns `true` when all collectors have been fully processed, `false` otherwise.
+--- @param budget integer  Number of output lines to emit this tick
 --- @return boolean done
 local function collect_chunked_next(budget)
 	if not chunked_state then
@@ -485,23 +597,65 @@ local function collect_chunked_next(budget)
 	local registry = get_registry()
 	local keys = chunked_state.collector_keys
 	local result = chunked_state.result
-	local processed = 0
+	local lines_emitted = 0
 
-	while chunked_state.collector_idx <= #keys and processed < budget do
-		local key = keys[chunked_state.collector_idx]
-		local collector = registry.collectors[key]
-		if collector then
-			for _, metric in ipairs(collector:collect()) do
-				result[#result + 1] = metric
+	while chunked_state.collector_idx <= #keys and lines_emitted < budget do
+		local collector_key = keys[chunked_state.collector_idx]
+		local collector = registry.collectors[collector_key]
+
+		if not collector then
+			-- Collector was unregistered between start and now; skip it
+			chunked_state.collector_idx = chunked_state.collector_idx + 1
+			chunked_state.obs_keys = nil
+			chunked_state.obs_idx = nil
+		else
+			-- Lazily initialize the observation cursor for this collector
+			if not chunked_state.obs_keys then
+				chunked_state.obs_keys = collector:observation_keys()
+				chunked_state.obs_idx = 1
+
+				-- Emit header lines if this collector has any observations
+				if #chunked_state.obs_keys > 0 then
+					for _, line in ipairs(collector:collect_header()) do
+						result[#result + 1] = line
+						lines_emitted = lines_emitted + 1
+					end
+				end
 			end
-			-- Separator between collectors (matches Registry:collect() behavior)
-			result[#result + 1] = ""
+
+			local obs_keys = chunked_state.obs_keys --[[@as string[] ]]
+			local obs_idx = chunked_state.obs_idx --[[@as integer]]
+
+			-- Process observations one at a time until budget exhausted or done
+			while obs_idx <= #obs_keys and lines_emitted < budget do
+				local obs_key = obs_keys[obs_idx]
+				local obs_lines = collector:collect_observation(obs_key)
+				if obs_lines then
+					for _, line in ipairs(obs_lines) do
+						result[#result + 1] = line
+						lines_emitted = lines_emitted + 1
+					end
+				end
+				obs_idx = obs_idx + 1
+			end
+
+			chunked_state.obs_idx = obs_idx
+
+			if obs_idx > #obs_keys then
+				-- This collector is fully processed
+				-- Separator between collectors (matches Registry:collect() behavior)
+				if #obs_keys > 0 then
+					result[#result + 1] = ""
+				end
+				chunked_state.collector_idx = chunked_state.collector_idx + 1
+				chunked_state.obs_keys = nil
+				chunked_state.obs_idx = nil
+			end
+			-- else: budget exhausted mid-collector, cursor stays for next call
 		end
-		chunked_state.collector_idx = chunked_state.collector_idx + 1
-		processed = processed + 1
 	end
 
-	return chunked_state.collector_idx > #keys
+	return chunked_state.collector_idx > #keys and chunked_state.obs_keys == nil
 end
 
 --- Finalize the chunked collection: concat accumulated lines into a single
