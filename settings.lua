@@ -1,3 +1,7 @@
+-- settings.lua
+-- Mod startup settings for graftorio2
+-- Runs in the data stage where `data:extend()` is the main API
+
 data:extend({
 	{
 		type = "string-setting",

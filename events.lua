@@ -3,6 +3,10 @@
 -- Collects game statistics every nth tick and exports to Prometheus format
 -- Processes production, pollution, evolution, logistic networks, and player counts
 
+--- Main nth-tick event handler. Collects all game metrics and writes the Prometheus export file.
+--- Iterates surfaces for seeds/pollution, forces (via players) for production/evolution/logistics,
+--- and delegates to sub-module tick handlers for power, circuit networks, and research.
+--- @param event NthTickEventData
 function register_events(event)
 	gauge_tick:set(game.tick)
 
@@ -33,6 +37,7 @@ function register_events(event)
 	gauge_logistic_network_robot_limit:reset()
 	gauge_logistic_network_items:reset()
 
+	--- @type table<string, boolean>
 	local processed_forces = {}
 
 	for _, player in pairs(game.players) do
@@ -41,6 +46,7 @@ function register_events(event)
 			processed_forces[player.force.name] = true
 
 			for _, surface in pairs(game.surfaces) do
+				--- @type {[1]: LuaFlowStatistics, [2]: Gauge, [3]: Gauge}[]
 				local stats = {
 					{ player.force.get_item_production_statistics(surface), gauge_item_production_input, gauge_item_production_output },
 					{ player.force.get_fluid_production_statistics(surface), gauge_fluid_production_input, gauge_fluid_production_output },
@@ -62,6 +68,7 @@ function register_events(event)
 					end
 				end
 
+				--- @type {[1]: number, [2]: string}[]
 				local evolution = {
 					{ player.force.get_evolution_factor(surface), "total" },
 					{ player.force.get_evolution_factor_by_pollution(surface), "by_pollution" },
@@ -103,7 +110,7 @@ function register_events(event)
 					local contents = network.get_contents()
 					if contents ~= nil then
 						for _, entry in ipairs(contents) do
-							local quality_name = entry.quality and entry.quality.name or "normal"
+							local quality_name = entry.quality and entry.quality.name or "normal" ---@diagnostic disable-line: undefined-field -- quality.name exists at runtime
 							gauge_logistic_network_items:set(entry.count, { player.force.name, surface, network_id, entry.name, quality_name })
 						end
 					end
@@ -127,6 +134,7 @@ function register_events(event)
 					local platform_name = platform.name or tostring(platform.index)
 
 					-- Map state enum to readable string
+					--- @type table<defines.space_platform_state, string>
 					local state_names = {
 						[defines.space_platform_state.waiting_for_starter_pack] = "waiting_for_starter_pack",
 						[defines.space_platform_state.starter_pack_requested] = "starter_pack_requested",
@@ -168,6 +176,7 @@ function register_events(event)
 			local reactors = surface.find_entities_filtered({ name = "kr-antimatter-reactor" })
 			if reactors and #reactors > 0 then
 				-- Count reactors by force
+				--- @type table<string, integer>
 				local reactor_count_by_force = {}
 				for _, reactor in pairs(reactors) do
 					if reactor.valid then
@@ -196,6 +205,8 @@ function register_events(event)
 	end
 end
 
+--- Handle player join/leave/kick/ban/remove events. Updates connected and total player count gauges.
+--- @param event EventData.on_player_joined_game|EventData.on_player_left_game|EventData.on_player_removed|EventData.on_player_kicked|EventData.on_player_banned
 function register_events_players(event)
 	gauge_connected_player_count:set(#game.connected_players)
 	gauge_total_player_count:set(#game.players)

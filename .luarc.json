@@ -1,0 +1,117 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime": {
+    "version": "Lua 5.2"
+  },
+  "workspace": {
+    "library": [
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/runtime-api",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/runtime",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/core",
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd/factorio/library/lua"
+    ],
+    "userThirdParty": [
+      "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd"
+    ],
+    "checkThirdParty": "ApplyInMemory"
+  },
+  "diagnostics": {
+    "globals": [
+      "data",
+      "mods",
+      "settings",
+      "serpent",
+      "table_size",
+      "util",
+      "defines",
+      "remote",
+      "commands",
+      "script",
+      "rendering",
+      "game",
+      "storage",
+      "log",
+      "localised_print",
+      "helpers",
+
+      "prometheus",
+      "bucket_settings",
+      "nth_tick",
+      "server_save",
+      "disable_train_stats",
+
+      "gauge_tick",
+      "gauge_connected_player_count",
+      "gauge_total_player_count",
+      "gauge_seed",
+      "gauge_mods",
+      "gauge_item_production_input",
+      "gauge_item_production_output",
+      "gauge_fluid_production_input",
+      "gauge_fluid_production_output",
+      "gauge_kill_count_input",
+      "gauge_kill_count_output",
+      "gauge_entity_build_count_input",
+      "gauge_entity_build_count_output",
+      "gauge_pollution_production_input",
+      "gauge_pollution_production_output",
+      "gauge_evolution",
+      "gauge_research_queue",
+      "gauge_items_launched",
+      "gauge_yarm_site_amount",
+      "gauge_yarm_site_ore_per_minute",
+      "gauge_yarm_site_remaining_permille",
+      "gauge_train_trip_time",
+      "gauge_train_wait_time",
+      "gauge_train_direct_loop_time",
+      "gauge_train_arrival_time",
+      "gauge_logistic_network_all_construction_robots",
+      "gauge_logistic_network_available_construction_robots",
+      "gauge_logistic_network_all_logistic_robots",
+      "gauge_logistic_network_available_logistic_robots",
+      "gauge_logistic_network_robot_limit",
+      "gauge_logistic_network_items",
+      "gauge_circuit_network_signal",
+      "gauge_circuit_network_monitored",
+      "gauge_power_production_input",
+      "gauge_power_production_output",
+      "gauge_platform_count",
+      "gauge_platform_state",
+      "gauge_platform_weight",
+      "gauge_platform_speed",
+      "gauge_platform_distance",
+      "gauge_platform_damaged_tiles",
+      "gauge_kr_antimatter_reactors",
+
+      "histogram_train_trip_time",
+      "histogram_train_wait_time",
+      "histogram_train_direct_loop_time",
+      "histogram_train_arrival_time",
+
+      "register_events",
+      "register_events_players",
+      "register_events_train",
+      "on_research_finished",
+      "on_research_tick",
+      "on_power_init",
+      "on_power_load",
+      "on_power_build",
+      "on_power_destroy",
+      "on_power_tick",
+      "on_circuit_network_init",
+      "on_circuit_network_load",
+      "on_circuit_network_build",
+      "on_circuit_network_destroy",
+      "on_circuit_network_tick",
+      "handle_yarm",
+      "train_buckets",
+      "split"
+    ],
+    "disable": [
+      "lowercase-global"
+    ]
+  },
+  "type": {
+    "castNumberToInteger": true
+  }
+}
