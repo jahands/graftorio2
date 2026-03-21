@@ -245,6 +245,7 @@ end
 --- @param event EventData
 local function collect_research_platforms(event)
 	gauge_research_queue:reset()
+	gauge_platform_count:reset()
 	gauge_platform_state:reset()
 	gauge_platform_weight:reset()
 	gauge_platform_speed:reset()
