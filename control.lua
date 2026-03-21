@@ -240,6 +240,7 @@ gauge_kr_antimatter_reactors = prometheus.gauge("factorio_kr_antimatter_reactors
 --- handlers are active in both new-game and save-load scenarios.
 local function register_all_events()
 	script.on_nth_tick(nth_tick, register_events)
+	script.on_event(defines.events.on_tick, collection_tick)
 
 	script.on_event(defines.events.on_player_joined_game, register_events_players)
 	script.on_event(defines.events.on_player_left_game, register_events_players)

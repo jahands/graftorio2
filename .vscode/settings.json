@@ -1,19 +1,19 @@
 {
-    "makefile.configureOnOpen": true,
-    "factorio.versions": [
-        {
-            "name": "System",
-            "factorioPath": "/Applications/factorio.app/Contents/MacOS/factorio",
-            "active": true
-        }
-    ],
-    "Lua.workspace.userThirdParty": [
-        "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/70866a9a8161f256b2847f22a19df532/justarandomgeek.factoriomod-debug/sumneko-3rd"
-    ],
-    "Lua.workspace.checkThirdParty": "ApplyInMemory",
-    "github-actions.workflows.pinned.workflows": [
-        ".github/workflows/release.yml"
-    ],
-    "github-actions.workflows.pinned.refresh.enabled": true,
-    "github-actions.workflows.pinned.refresh.interval": 30,
+  "makefile.configureOnOpen": true,
+  "factorio.versions": [
+    {
+      "name": "System",
+      "factorioPath": "/Applications/factorio.app/Contents/MacOS/factorio",
+      "active": true
+    }
+  ],
+  "Lua.workspace.userThirdParty": [
+    "/Users/jh/Library/Application Support/Cursor/User/workspaceStorage/af743e3960c8a0c350526680bbc09a71/justarandomgeek.factoriomod-debug/sumneko-3rd"
+  ],
+  "Lua.workspace.checkThirdParty": "ApplyInMemory",
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/release.yml"
+  ],
+  "github-actions.workflows.pinned.refresh.enabled": true,
+  "github-actions.workflows.pinned.refresh.interval": 30
 }
