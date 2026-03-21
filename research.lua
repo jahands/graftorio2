@@ -30,9 +30,9 @@ function on_research_finished(event)
 end
 
 --- Collect research queue metrics for a force. Called once per force per nth-tick.
---- Despite the parameter name in the original code, this receives a LuaPlayer from events.lua
---- and accesses the force via `player.force`. Called as `on_research_tick(player, event)`.
---- @param player LuaPlayer A player whose force will be used for research metrics
+--- The argument comes from `for_each_force` in `events.lua` and only needs to provide
+--- `player.force`, whether it is a real `LuaPlayer` or the zero-player fallback wrapper.
+--- @param player LuaPlayer|{ force: LuaForce }
 --- @param event NthTickEventData|EventData
 function on_research_tick(player, event)
 	if event.tick then

@@ -69,17 +69,16 @@ local per_surface_phase = {
 -- Helpers
 -- ============================================================================
 
---- Iterate game.players, deduplicate by force.name, call callback(player) once per unique force.
---- The callback receives a LuaPlayer so it can access both player.force and pass the player
---- to functions like on_research_tick that expect a LuaPlayer parameter.
---- @param callback fun(player: LuaPlayer)
+--- Iterate game.forces, call callback once per force.
+--- The callback receives either the first player for that force or a minimal table containing
+--- only `force`, so callers can emit force-scoped metrics even when a save has no players.
+--- @param callback fun(player: LuaPlayer|{ force: LuaForce })
 local function for_each_force(callback)
-	--- @type table<string, boolean>
-	local processed_forces = {}
-	for _, player in pairs(game.players) do
-		if not processed_forces[player.force.name] then
-			processed_forces[player.force.name] = true
-			callback(player)
+	for _, force in pairs(game.forces) do
+		if force.players[1] then
+			callback(force.players[1])
+		else
+			callback({ force = force })
 		end
 	end
 end
