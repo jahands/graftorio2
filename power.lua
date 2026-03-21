@@ -292,7 +292,7 @@ local function step_power_group(state)
 				if current_idx ~= idx then
 					script_data.networks[idx] = nil
 					new_entity_entry(entity)
-				elseif not state.ignored[current_idx] then
+				else
 					script_data.failed_lookups[network.entity_number] = nil
 					local surface_name = entity.surface.name
 					if not state.by_surface[surface_name] then state.by_surface[surface_name] = {} end
