@@ -236,6 +236,13 @@ end
 --- Phase 8: Research queue + Space Age platforms (single tick, per force).
 --- @param event EventData
 local function collect_research_platforms(event)
+	gauge_research_queue:reset()
+	gauge_platform_state:reset()
+	gauge_platform_weight:reset()
+	gauge_platform_speed:reset()
+	gauge_platform_distance:reset()
+	gauge_platform_damaged_tiles:reset()
+
 	for_each_force(function(player)
 		-- research tick handler (process once per force, not per player)
 		on_research_tick(player, event)
@@ -243,11 +250,6 @@ local function collect_research_platforms(event)
 		-- Space Age platform metrics
 		if player.force.platforms then
 			local platform_count = 0
-			gauge_platform_state:reset()
-			gauge_platform_weight:reset()
-			gauge_platform_speed:reset()
-			gauge_platform_distance:reset()
-			gauge_platform_damaged_tiles:reset()
 
 			for _, platform in pairs(player.force.platforms) do
 				platform_count = platform_count + 1

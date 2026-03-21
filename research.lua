@@ -36,8 +36,6 @@ end
 --- @param event NthTickEventData|EventData
 function on_research_tick(player, event)
 	if event.tick then
-		gauge_research_queue:reset()
-
 		--- @type ResearchRecord|false
 		local researched_queue = storage.last_research and storage.last_research[player.force.name] or false
 		if researched_queue then
