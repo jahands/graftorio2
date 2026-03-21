@@ -83,6 +83,25 @@ local function for_each_force(callback)
 	end
 end
 
+--- Advance to a collection phase and run any phase-entry setup.
+--- @param next_phase integer
+local function enter_collection_phase(next_phase)
+	collection_phase = next_phase
+
+	if per_surface_phase[next_phase] then
+		surface_idx = 1
+	end
+
+	if next_phase == PHASE_LOGISTICS then
+		gauge_logistic_network_all_logistic_robots:reset()
+		gauge_logistic_network_available_logistic_robots:reset()
+		gauge_logistic_network_all_construction_robots:reset()
+		gauge_logistic_network_available_construction_robots:reset()
+		gauge_logistic_network_robot_limit:reset()
+		gauge_logistic_network_items:reset()
+	end
+end
+
 -- ============================================================================
 -- Phase functions
 -- ============================================================================
@@ -185,19 +204,8 @@ local function collect_evolution_surface(surface)
 end
 
 --- Phase 7: Logistic networks for a single surface (all forces).
---- Resets logistic gauges on the first surface of the phase (surface_idx == 1).
 --- @param surface LuaSurface
 local function collect_logistics_surface(surface)
-	-- Reset logistic gauges once at the start of the logistics phase
-	if surface_idx == 1 then
-		gauge_logistic_network_all_logistic_robots:reset()
-		gauge_logistic_network_available_logistic_robots:reset()
-		gauge_logistic_network_all_construction_robots:reset()
-		gauge_logistic_network_available_construction_robots:reset()
-		gauge_logistic_network_robot_limit:reset()
-		gauge_logistic_network_items:reset()
-	end
-
 	for_each_force(function(player)
 		local networks = player.force.logistic_networks[surface.name]
 		if networks then
@@ -428,10 +436,9 @@ function register_events(event)
 	for _, surface in pairs(game.surfaces) do
 		cached_surfaces[#cached_surfaces + 1] = surface
 	end
-	surface_idx = 1
 
 	-- Start the phased collection cycle
-	collection_phase = PHASE_GLOBALS
+	enter_collection_phase(PHASE_GLOBALS)
 end
 
 --- On-tick handler for phased collection. Executes one phase (or one surface of a
@@ -452,8 +459,7 @@ function collection_tick(event)
 
 		if surface_idx >= #cached_surfaces then
 			-- All surfaces done for this phase, advance to next phase
-			surface_idx = 1
-			collection_phase = collection_phase + 1
+			enter_collection_phase(collection_phase + 1)
 		else
 			-- More surfaces remain, stay in this phase
 			surface_idx = surface_idx + 1
@@ -461,7 +467,7 @@ function collection_tick(event)
 	elseif resumable_phase_dispatch[collection_phase] then
 		-- Resumable phase: stay in this phase until the worker reports completion
 		if resumable_phase_dispatch[collection_phase](event) then
-			collection_phase = collection_phase + 1
+			enter_collection_phase(collection_phase + 1)
 		end
 	else
 		-- Single-tick phase: execute and advance
@@ -469,7 +475,7 @@ function collection_tick(event)
 		if phase_fn then
 			phase_fn(event)
 		end
-		collection_phase = collection_phase + 1
+		enter_collection_phase(collection_phase + 1)
 	end
 
 	-- Check if all phases are complete
