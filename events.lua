@@ -8,9 +8,9 @@
 -- Phase 3:  item production stats — per surface
 -- Phase 4:  fluid production stats — per surface
 -- Phase 5:  kill + entity build count stats — per surface
--- Phase 6:  evolution factors + items launched — per surface
+-- Phase 6:  evolution factors — per surface
 -- Phase 7:  logistic networks — per surface
--- Phase 8:  research queue + Space Age platforms — single tick
+-- Phase 8:  research queue + items launched + Space Age platforms — single tick
 -- Phase 9:  power prepare (rescan, cleanup, reset, group) — resumable
 -- Phase 10: power network stats — per surface
 -- Phase 11: circuit prepare (rescan, reset, group) — resumable
@@ -180,7 +180,7 @@ local function collect_military_surface(surface)
 	end)
 end
 
---- Phase 6: Evolution factors + items launched for a single surface (all forces).
+--- Phase 6: Evolution factors for a single surface (all forces).
 --- @param surface LuaSurface
 local function collect_evolution_surface(surface)
 	for_each_force(function(player)
@@ -196,10 +196,6 @@ local function collect_evolution_surface(surface)
 			gauge_evolution:set(stat[1], { player.force.name, stat[2], surface.name })
 		end
 
-		for _, entry in ipairs(player.force.items_launched) do
-			local quality_name = entry.quality and entry.quality.name or "normal"
-			gauge_items_launched:set(entry.count, { player.force.name, entry.name, quality_name })
-		end
 	end)
 end
 
@@ -241,7 +237,7 @@ local function collect_logistics_surface(surface)
 	end)
 end
 
---- Phase 8: Research queue + Space Age platforms (single tick, per force).
+--- Phase 8: Research queue + items launched + Space Age platforms (single tick, per force).
 --- @param event EventData
 local function collect_research_platforms(event)
 	gauge_research_queue:reset()
@@ -255,6 +251,11 @@ local function collect_research_platforms(event)
 	for_each_force(function(player)
 		-- research tick handler (process once per force, not per player)
 		on_research_tick(player, event)
+
+		for _, entry in ipairs(player.force.items_launched) do
+			local quality_name = entry.quality and entry.quality.name or "normal"
+			gauge_items_launched:set(entry.count, { player.force.name, entry.name, quality_name })
+		end
 
 		-- Space Age platform metrics
 		if player.force.platforms then
