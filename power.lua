@@ -27,7 +27,7 @@ local PREPARE_RESCAN_SURFACES_PER_TICK = 1
 --- @field network_idx integer
 --- @field cleanup_threshold uint?
 --- @field ignored table<uint, boolean>
---- @field by_surface table<string, {idx: uint, entity: LuaEntity}[]>
+--- @field by_surface table<string, {idx: uint, entity: LuaEntity, entity_number: uint}[]>
 
 --- @class PowerScriptData
 --- @field has_checked boolean Whether the initial world rescan has been performed this session
@@ -36,7 +36,7 @@ local PREPARE_RESCAN_SURFACES_PER_TICK = 1
 --- @field ignored_networks_cache table<uint, boolean>? Cached set of network IDs to ignore (behind power switches)
 --- @field ignored_networks_dirty boolean Whether the ignored networks cache needs recalculation
 --- @field failed_lookups table<uint, uint> Entity unit_number -> tick of last failed lookup (for backoff)
---- @field _networks_by_surface table<string, {idx: uint, entity: LuaEntity}[]>? Pre-grouped networks by surface name (set during prepare phase)
+--- @field _networks_by_surface table<string, {idx: uint, entity: LuaEntity, entity_number: uint}[]>? Pre-grouped networks by surface name (set during prepare phase)
 --- @field _prepare PowerPrepareState? Runtime state for resumable prepare work
 --- @field _live_ignored_tick uint? Tick when `_live_ignored` was last rebuilt
 --- @field _live_ignored table<uint, boolean>? Ignored networks rebuilt for the current tick
@@ -296,7 +296,11 @@ local function step_power_group(state)
 					script_data.failed_lookups[network.entity_number] = nil
 					local surface_name = entity.surface.name
 					if not state.by_surface[surface_name] then state.by_surface[surface_name] = {} end
-					state.by_surface[surface_name][#state.by_surface[surface_name] + 1] = { idx = idx, entity = entity }
+					state.by_surface[surface_name][#state.by_surface[surface_name] + 1] = {
+						idx = idx,
+						entity = entity,
+						entity_number = network.entity_number,
+					}
 				end
 			else
 				script_data.networks[idx] = nil
@@ -433,6 +437,8 @@ function on_power_tick_surface(surface)
 	for _, entry in ipairs(networks) do
 		local entity = entry.entity
 		local idx = entry.idx
+		local current_network = script_data.networks[idx]
+		local is_prepared_representative = current_network and current_network.entity_number == entry.entity_number
 		-- Re-validate entity in case it was destroyed between prepare and this tick
 		if entity.valid then
 			local current_idx = entity.electric_network_id
@@ -445,12 +451,14 @@ function on_power_tick_surface(surface)
 				for name, n in pairs(entity.electric_network_statistics.output_counts) do
 					gauge_power_production_output:set(n, { force_name, name, idx, surface_name })
 				end
-			elseif current_idx ~= idx then
+			elseif current_idx ~= idx and is_prepared_representative then
 				script_data.networks[idx] = nil
 				new_entity_entry(entity)
 			end
 		else
-			script_data.networks[idx] = nil
+			if is_prepared_representative then
+				script_data.networks[idx] = nil
+			end
 		end
 	end
 end
