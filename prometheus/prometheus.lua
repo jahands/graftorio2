@@ -3,7 +3,6 @@
 
 local INF = math.huge
 local NAN = math.huge * 0
-local MULTILINE_OBSERVATION_COST = 5
 
 --- Default histogram bucket boundaries (seconds).
 --- @type number[]
@@ -536,7 +535,7 @@ end
 --- of the per-tick chunk budget than single-line metric types.
 --- @return integer
 function Histogram:observation_cost()
-	return MULTILINE_OBSERVATION_COST
+	return (#self.buckets + 2)
 end
 
 -- #################### Public API ####################
