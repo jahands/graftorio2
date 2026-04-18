@@ -174,7 +174,6 @@ you should see the target from `config/Prometheus/Prometheus.yml`.
 
 ### Grafana
 
-to see if the Grafana data source can read correctly, there is already a included `graftorio2` dashboard.  
-this should show a linear growing `Factorio Tick` panel.  
-alternatively start a new dashboard and add a graph with the query `factorio_item_production_input`.  
-the graph should render the total of every item produced in your game.  
+to see if the Grafana data source can read correctly, open one of the bundled Space Age dashboards.  
+alternatively start a new dashboard and add a graph with the query `factorio_platform_count` or `factorio_items_launched_total`.  
+the graph should render your current platform count or launched cargo totals.  
