@@ -60,8 +60,8 @@ function register_events(event)
 	end
 
 	if server_save then
-		helpers.write_file("graftorio2/game.prom", prometheus.collect(), false, 0)
+		helpers.write_file("graftorio2-geo/game.prom", prometheus.collect(), false, 0)
 	else
-		helpers.write_file("graftorio2/game.prom", prometheus.collect(), false)
+		helpers.write_file("graftorio2-geo/game.prom", prometheus.collect(), false)
 	end
 end
