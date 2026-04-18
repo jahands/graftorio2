@@ -1,17 +1,15 @@
 {
   "name": "graftorio2-geo",
   "version": "1.0.0",
-  "title": "graftorio2 - Geo's version",
+  "title": "graftorio2 - Geo's Space Age metrics",
   "author": "Geostyx",
-  "description": "Visualize metrics from your factorio game in grafana",
+  "description": "Export Space Age platform and rocket metrics from your Factorio game to Grafana",
   "homepage": "https://github.com/jahands/graftorio2",
-  "dependencies": [
-    "? YARM >= 0.8.207"
-  ],
+  "dependencies": [],
   "factorio_version": "2.0",
   "quality_required": false,
   "rail_bridges_required": false,
-  "space_travel_required": false,
+  "space_travel_required": true,
   "spoiling_required": false,
   "freezing_required": false,
   "segmented_units_required": false,

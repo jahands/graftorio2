@@ -3,13 +3,15 @@
 
 # graftorio2-narf
 
-**Enhanced fork of [graftorio2-narf](https://mods.factorio.com/mod/graftorio2-narf) with my own tweaks**
+**Space Age-only fork of [graftorio2-narf](https://mods.factorio.com/mod/graftorio2-narf)**
 
 Visualize metrics from your Factorio game in Grafana
 
 ## What's New in This Fork
 
-* nothing yet
+* cut the mod down to Space Age metrics only
+* removed vanilla, train, power, logistics, research, YARM, and Krastorio metric collection
+* trimmed the bundled dashboards to match the smaller scope
 
 Original fork of [graftorio](https://github.com/afex/graftorio)
 
@@ -18,7 +20,7 @@ Original fork of [graftorio](https://github.com/afex/graftorio)
 ## What is this?
 
 [Grafana](https://grafana.com/) is an open-source project for rendering time-series metrics.  
-by using [graftorio2](https://mods.factorio.com/mod/graftorio2), you can create a dashboard with various charts monitoring aspects of your Factorio factory.  
+by using this fork of [graftorio2](https://mods.factorio.com/mod/graftorio2), you can create a dashboard with charts focused on Space Age platforms and rocket cargo.  
 this dashboard is viewed using a web browser outside of the game client. (works great in a 2nd monitor!)  
 
 in order to use graftorio2, you need to run the Grafana software and a database called [Prometheus](https://prometheus.io/) locally.  
@@ -135,74 +137,19 @@ keep in mind that this short guide doesn't explain on how to properly secure eve
 ## Metrics
 
 The list of currently included metrics can be found in [Metrics.md](Metrics.md).
+This fork intentionally exports only Space Age-related metrics.
 
 ## Dashboards
 
-this repository includes a variety of ready to use dashboards.  
-those dashboards are from [Kariton/graftorio2-dashboards](https://github.com/Kariton/graftorio2-dashboards).  
-the dashboards will be updated within this repostory if new versions are available.  
+this repository now includes two small dashboards that match the reduced metric surface.
 
-all dashboards support a variety of different filters, panel links as well as data links.  
-for example: `Force`, `TimeScale`, `Network`, `Item / Fluid / Building / etc.`  
-  - Force: default `player` - some mods provide their own identifyer.
-  - TimeScale: default `Minute` - is used to calculate values per `Second / Minute / Hour`.
-  - Network: default `all` - depending on context the available networks like `electricity / logistic`.
-  - Item / Fluid / Building etc.: default `all` -  depending on context the available entities.
+### `1.0.0 - Space Age Platforms.json`
+  - platform count by force
+  - platform states
+  - platform weight, speed, distance, and damaged tiles
 
-
-### `Info` - overall stats
-  - UPS
-  - Game Time (Play Time)
-  - Total Players (unique players)
-  - Current online players
-  - Map Seed
-  - Installed mods
-  - Evolution
-  - Evolution Composition
-  - Current research progress
-  - research queue
-  - total rockets launched
-  - rockets per `TimeScale` based on last hour
-
-### `Items` - important items - delta production / consumption
-  - Science delta
-  - Circuits delta
-  - Materials delte (Iron, Copper, Plastic, Steel)
-  - Components delte (Battery, FRF, LDS, RCU, Rocket Fuel)
-
-### `Default` - rebuild of ingame graphs (as close as possible)
-  - 1.1 - Default: Electricity.json
-  - 1.2 - Default: Items.json
-  - 1.3 - Default: Fluids.json
-  - 1.4 - Default: Buildings.json
-  - 1.5 - Default: Pollution.json
-  - 1.6 - Default: Kills.json
-  - 1.7 - Default: Logistics.json
-
-### `Rate` - Various interpretation of "rate"
-  - 2.0.1 - Rate: Electricity.json
-  - 2.0.2 - Rate: Items.json
-  - 2.0.2.1 - Rate: Storage.json
-  - 2.0.2.2 - Rate: Science Packs.json
-  - 2.0.3 - Rate: Fluids.json
-  - 2.0.4 - Rate: Buildings.json
-  - 2.0.5 - Rate: Pollution.json
-  - 2.0.6 - Rate: Kills.json
-  - 2.0.7 - Rate: Evolution.json
-  - 2.0.8 - Rate: Research.json
-  - 2.0.9 - Rate: Rockets.json
-  - 2.1.0 - Rate: Players.json
-
-### `Misc` - detailed presentation in various forms
-  - 3.0.1 - Misc: Items.json
-  - 3.0.2 - Misc: Buildings.json
-  - 3.0.4 - Misc: Logistic Networks.json
-  - 3.0.4.1 - Misc: Logistic Items.json
-  - 3.0.4.2 - Misc: Robots.json
-  - 3.0.5 - Misc: Trains.json
-
-### `Mod` - dashboards dedicated to display mod related information
-  - 4.0.1 - Mod: YARM.json
+### `1.1.0 - Space Age Rockets.json`
+  - launched cargo totals by force, item, and quality
 
 ## Debugging
 
@@ -211,10 +158,13 @@ for example: `Force`, `TimeScale`, `Network`, `Item / Fluid / Building / etc.`
 to see if Factorio is generating stats, confirm a `game.prom` file exists at the configured exporter volume directory.  when opened, it should look something like this:
 
 ```
-# HELP factorio_item_production_input items produced
-# TYPE factorio_item_production_input gauge
-factorio_item_production_input{force="player",name="burner-mining-drill"} 3
-factorio_item_production_input{force="player",name="iron-chest"} 1
+# HELP factorio_platform_count number of space platforms
+# TYPE factorio_platform_count gauge
+factorio_platform_count{force="player"} 2
+
+# HELP factorio_items_launched_total items launched in rockets
+# TYPE factorio_items_launched_total gauge
+factorio_items_launched_total{force="player",name="space-science-pack",quality="normal"} 42
 ```
 
 ### Prometheus
