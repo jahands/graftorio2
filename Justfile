@@ -53,6 +53,10 @@ docker-up:
 docker-down:
   {{ docker }} down
 
+# Clean docker data.
+docker-clean: docker-down
+  find data/grafana data/prometheus -mindepth 1 ! -name '.gitkeep' -exec rm -rf {} +
+
 # Follow stack logs, optionally filtered by service.
 docker-logs service="":
   @if [ -n "{{ service }}" ]; then {{ docker }} logs -f "{{ service }}"; else {{ docker }} logs -f; fi
