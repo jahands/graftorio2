@@ -120,12 +120,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (force, name, quality) (factorio_items_launched_total)",
-          "legendFormat": "{{force}} / {{name}} / {{quality}}",
+          "expr": "sum by (force, name) (factorio_items_launched_total)",
+          "legendFormat": "{{force}} / {{name}}",
           "refId": "A"
         }
       ],
-      "title": "Launched Cargo by Item and Quality",
+      "title": "Launched Cargo by Item",
       "type": "timeseries"
     }
   ],

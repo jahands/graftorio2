@@ -6,7 +6,7 @@ This fork now exports only Space Age metrics. Everything else was removed on pur
 
 | Name                            | Labels                     | Description                                       |
 |---------------------------------|----------------------------|---------------------------------------------------|
-| `factorio_items_launched_total` | force<br/>name<br/>quality | How many of each item quality has been sent to space |
+| `factorio_items_launched_total` | force<br/>name | How many of each item has been sent to space |
 
 ### Space platforms
 

@@ -33,7 +33,7 @@ end
 --- @param force LuaForce
 local function collect_launched_items(force)
 	for name, count in pairs(force.items_launched) do
-		gauge_items_launched:set(count, { force.name, name, "normal" })
+		gauge_items_launched:set(count, { force.name, name })
 	end
 end
 

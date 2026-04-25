@@ -150,7 +150,7 @@ this repository now includes two small dashboards that match the reduced metric 
 
 ### `1.1.0 - Space Age Rockets.json`
 
-- launched cargo totals by force, item, and quality
+- launched cargo totals by force and item
 
 ## Debugging
 
@@ -165,7 +165,7 @@ factorio_platform_count{force="player"} 2
 
 # HELP factorio_items_launched_total items launched in rockets
 # TYPE factorio_items_launched_total gauge
-factorio_items_launched_total{force="player",name="space-science-pack",quality="normal"} 42
+factorio_items_launched_total{force="player",name="space-science-pack"} 42
 ```
 
 ### Prometheus

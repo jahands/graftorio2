@@ -10,7 +10,7 @@ server_save = settings.startup["graftorio2-server-save"].value --[[@as boolean]]
 
 --- @type Gauge
 gauge_items_launched =
-	prometheus.gauge("factorio_items_launched_total", "items launched in rockets", { "force", "name", "quality" })
+	prometheus.gauge("factorio_items_launched_total", "items launched in rockets", { "force", "name" })
 
 --- @type Gauge
 gauge_platform_count = prometheus.gauge("factorio_platform_count", "number of space platforms", { "force" })
