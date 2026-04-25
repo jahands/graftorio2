@@ -32,9 +32,8 @@ end
 --- Collect the current rocket cargo totals for a force.
 --- @param force LuaForce
 local function collect_launched_items(force)
-	for _, entry in ipairs(force.items_launched) do
-		local quality_name = entry.quality and entry.quality.name or "normal"
-		gauge_items_launched:set(entry.count, { force.name, entry.name, quality_name })
+	for name, count in pairs(force.items_launched) do
+		gauge_items_launched:set(count, { force.name, name, "normal" })
 	end
 end
 
