@@ -15,6 +15,7 @@ local platform_state_names = {
 }
 
 local export_path = "graftorio2-geo/game.prom"
+local export_pipeline_interval = 60
 local export_pipeline
 local export_pipeline_output
 
@@ -86,7 +87,7 @@ function start_export_pipeline(event)
 	collect_metrics()
 	export_pipeline = {
 		phase = "stringify",
-		next_tick = event.tick + 1,
+		next_tick = event.tick + export_pipeline_interval,
 	}
 end
 
@@ -100,7 +101,7 @@ function advance_export_pipeline(event)
 	if export_pipeline.phase == "stringify" then
 		export_pipeline_output = prometheus.collect()
 		export_pipeline.phase = "write"
-		export_pipeline.next_tick = event.tick + 1
+		export_pipeline.next_tick = event.tick + export_pipeline_interval
 		return
 	end
 
