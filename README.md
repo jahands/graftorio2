@@ -114,7 +114,7 @@ command:
 
 ### Part 4: The exporter
 
-the exporter needs to have access to your game.prom file, so change the path in the `docker-compose.yml` to where `script-output/graftorio` is found.
+the exporter needs to have access to your game.prom file, so change the path in the `docker-compose.yml` to where `script-output/graftorio-geo` is found.
 
 **Separate servers**
 
