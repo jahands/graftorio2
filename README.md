@@ -1,17 +1,14 @@
-
 ![](https://mods-data.factorio.com/assets/ad36f974db944b1540ce50a0aea46221f26f7c36.thumb.png)
 
-# graftorio2-narf
+# graftorio2-geo
 
-**Space Age-only fork of [graftorio2-narf](https://mods.factorio.com/mod/graftorio2-narf)**
+**My personal fork of [graftorio2-narf](https://mods.factorio.com/mod/graftorio2-narf) - you probably don't want this version!**
 
 Visualize metrics from your Factorio game in Grafana
 
-## What's New in This Fork
+## What's Different In This Fork
 
-* cut the mod down to Space Age metrics only
-* removed vanilla, train, power, logistics, research, YARM, and Krastorio metric collection
-* trimmed the bundled dashboards to match the smaller scope
+This is a fork for my personal Factorio server that I'm customizing to the minimal metrics I want to reduce performance impact.
 
 Original fork of [graftorio](https://github.com/afex/graftorio)
 
@@ -21,7 +18,7 @@ Original fork of [graftorio](https://github.com/afex/graftorio)
 
 [Grafana](https://grafana.com/) is an open-source project for rendering time-series metrics.  
 by using this fork of [graftorio2](https://mods.factorio.com/mod/graftorio2), you can create a dashboard with charts focused on Space Age platforms and rocket cargo.  
-this dashboard is viewed using a web browser outside of the game client. (works great in a 2nd monitor!)  
+this dashboard is viewed using a web browser outside of the game client. (works great in a 2nd monitor!)
 
 in order to use graftorio2, you need to run the Grafana software and a database called [Prometheus](https://prometheus.io/) locally.  
 graftorio2 automates this process using docker, or you can set these up by hand.
@@ -49,12 +46,12 @@ graftorio2 automates this process using docker, or you can set these up by hand.
 
 whenever you want to publish your dashboard to the public you can do this by placing this upon a server and opening up the ports for your game.  
 preferable all runs on the same server, but separating the game and the Grafana dahsboard is possible.  
-in the following example we'll explain on how to set it up all on 1 server.  
+in the following example we'll explain on how to set it up all on 1 server.
 
 ### Part 1: The Website
 
 when ever you are hosting this on a server it's prefered to run this as the docker instance.  
-we placed an [nginx](https://nginx.org/) as reverse proxy in front of it to forward the http(s) requests to the Grafana server.  
+we placed an [nginx](https://nginx.org/) as reverse proxy in front of it to forward the http(s) requests to the Grafana server.
 
 ```nginx
 server {
@@ -86,19 +83,20 @@ server {
 change the `environment:` variable in `docker-compose.yml`.  
 for example the domain name and the root URL you're going to use for the public.  
 this way dashboards can be made visible to the public.  
-for more details consult the [Grafana docker documentation](https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/).  
+for more details consult the [Grafana docker documentation](https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/).
 
 for example:
+
 ```yaml
-    environment:
-      - GF_SERVER_DOMAIN=domain.name
-      - GF_SERVER_ROOT_URL=https://%(domain)s/graftorio
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true # the `/graftorio` part of URL
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_BASIC_ENABLED=false
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_AUTH_ANONYMOUS_HIDE_VERSION=true
+environment:
+  - GF_SERVER_DOMAIN=domain.name
+  - GF_SERVER_ROOT_URL=https://%(domain)s/graftorio
+  - GF_SERVER_SERVE_FROM_SUB_PATH=true # the `/graftorio` part of URL
+  - GF_USERS_ALLOW_SIGN_UP=false
+  - GF_AUTH_BASIC_ENABLED=false
+  - GF_AUTH_ANONYMOUS_ENABLED=true
+  - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+  - GF_AUTH_ANONYMOUS_HIDE_VERSION=true
 ```
 
 ### Part 3: The Prometheus settings
@@ -108,14 +106,15 @@ but for Prometheus you need to set them as `command:` inside the `docker-compose
 for more details consult the [Prometheus docker documentation](https://prometheus.io/docs/prometheus/latest/configuration/configuration/)
 
 for example:
+
 ```yaml
-    command:
-      - '--storage.tsdb.retention.time=14d'
+command:
+  - "--storage.tsdb.retention.time=14d"
 ```
 
 ### Part 4: The exporter
 
-the exporter needs to have access to your game.prom file, so change the path in the `docker-compose.yml` to where `script-output/graftorio` is found.  
+the exporter needs to have access to your game.prom file, so change the path in the `docker-compose.yml` to where `script-output/graftorio` is found.
 
 **Separate servers**
 
@@ -144,18 +143,20 @@ This fork intentionally exports only Space Age-related metrics.
 this repository now includes two small dashboards that match the reduced metric surface.
 
 ### `1.0.0 - Space Age Platforms.json`
-  - platform count by force
-  - platform states
-  - platform weight, speed, distance, and damaged tiles
+
+- platform count by force
+- platform states
+- platform weight, speed, distance, and damaged tiles
 
 ### `1.1.0 - Space Age Rockets.json`
-  - launched cargo totals by force, item, and quality
+
+- launched cargo totals by force, item, and quality
 
 ## Debugging
 
 ### mod
 
-to see if Factorio is generating stats, confirm a `game.prom` file exists at the configured exporter volume directory.  when opened, it should look something like this:
+to see if Factorio is generating stats, confirm a `game.prom` file exists at the configured exporter volume directory. when opened, it should look something like this:
 
 ```
 # HELP factorio_platform_count number of space platforms
@@ -170,10 +171,10 @@ factorio_items_launched_total{force="player",name="space-science-pack",quality="
 ### Prometheus
 
 to see if Prometheus is scraping the data, load `localhost:9090/targets` in a browser and confirm that the status is "UP".  
-you should see the target from `config/Prometheus/Prometheus.yml`.  
+you should see the target from `config/Prometheus/Prometheus.yml`.
 
 ### Grafana
 
 to see if the Grafana data source can read correctly, open one of the bundled Space Age dashboards.  
 alternatively start a new dashboard and add a graph with the query `factorio_platform_count` or `factorio_items_launched_total`.  
-the graph should render your current platform count or launched cargo totals.  
+the graph should render your current platform count or launched cargo totals.
