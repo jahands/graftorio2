@@ -1,8 +1,8 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set dotenv-load := true
 
-mod_name := `bun -e 'console.log(JSON.parse(require("node:fs").readFileSync("info.json", "utf8")).name)'`
-mod_version := `bun -e 'console.log(JSON.parse(require("node:fs").readFileSync("info.json", "utf8")).version)'`
+mod_name := `bun -e 'console.log((await Bun.file("info.json").json()).name);'`
+mod_version := `bun -e 'console.log((await Bun.file("info.json").json()).version);'`
 package_dir := "pkg"
 package_zip := package_dir + "/" + mod_name + "_" + mod_version + ".zip"
 docker := "docker compose -f docker-compose.dev.yml"
