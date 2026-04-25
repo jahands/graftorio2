@@ -4,9 +4,9 @@ services:
     image: prom/node-exporter
     command: --collector.disable-defaults --collector.textfile --collector.textfile.directory=/textfiles
     volumes:
-      - ~/Library/Application Support/factorio/script-output/graftorio2/:/textfiles # macOS
-      # - ${APPDATA}\Factorio\script-output\graftorio2:/textfiles # Windows
-      # - ~/bin/factorio/script-output/graftorio2:/textfiles # Linux
+      - ~/Library/Application Support/factorio/script-output/graftorio2-geo/:/textfiles # macOS
+      # - ${APPDATA}\Factorio\script-output\graftorio2-geo:/textfiles # Windows
+      # - ~/bin/factorio/script-output/graftorio2-geo:/textfiles # Linux
     ports:
       - 9100
   prometheus:
