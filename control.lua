@@ -26,7 +26,8 @@ gauge_platform_distance = prometheus.gauge("factorio_platform_distance", "platfo
 gauge_platform_damaged_tiles = prometheus.gauge("factorio_platform_damaged_tiles", "number of damaged platform tiles", { "force", "platform" })
 
 local function register_all_events()
-	script.on_nth_tick(nth_tick, register_events)
+	script.on_nth_tick(nth_tick, start_export_pipeline)
+	script.on_event(defines.events.on_tick, advance_export_pipeline)
 end
 
 script.on_init(register_all_events)
